@@ -15,10 +15,11 @@ import {
   Stack,
   Text,
 } from "@chakra-ui/react";
-import { login } from "@/lib/api/auth";
+import { register } from "@/lib/api/auth";
 
-export default function LoginPage() {
+export default function RegisterPage() {
   const router = useRouter();
+  const [nome, setNome] = useState("");
   const [email, setEmail] = useState("");
   const [senha, setSenha] = useState("");
   const [error, setError] = useState<string | null>(null);
@@ -29,11 +30,15 @@ export default function LoginPage() {
     setError(null);
     setLoading(true);
     try {
-      const { token } = await login({ email, senha });
+      const { token } = await register({ nome, email, senha });
       localStorage.setItem("token", token);
       router.push("/home");
     } catch (err) {
-      setError(err instanceof Error ? err.message : "Erro ao fazer login.");
+      if (err instanceof Error && err.message.startsWith("API 409")) {
+        setError("Este e-mail já está cadastrado.");
+      } else {
+        setError(err instanceof Error ? err.message : "Erro ao criar conta.");
+      }
     } finally {
       setLoading(false);
     }
@@ -54,34 +59,33 @@ export default function LoginPage() {
       {/* Background ambient glows */}
       <Box
         position="absolute"
-        top="-120px"
-        left="50%"
-        transform="translateX(-50%)"
-        w="480px"
-        h="480px"
+        top="-100px"
+        right="-80px"
+        w="400px"
+        h="400px"
         borderRadius="full"
-        bg="radial-gradient(circle, rgba(188, 0, 209, 0.18) 0%, transparent 70%)"
+        bg="radial-gradient(circle, rgba(56,0,224,0.15) 0%, transparent 70%)"
         pointerEvents="none"
       />
       <Box
         position="absolute"
-        bottom="-80px"
-        right="-60px"
-        w="320px"
-        h="320px"
+        bottom="-100px"
+        left="-60px"
+        w="360px"
+        h="360px"
         borderRadius="full"
-        bg="radial-gradient(circle, rgba(255, 71, 10, 0.12) 0%, transparent 70%)"
+        bg="radial-gradient(circle, rgba(0,224,56,0.08) 0%, transparent 70%)"
         pointerEvents="none"
       />
 
       <Container maxW="390px" px={0} position="relative" zIndex={1}>
         {/* Logo */}
-        <Stack spacing={2} mb={10} align="center">
+        <Stack spacing={2} mb={8} align="center">
           <Heading
             fontSize="48px"
-            marginTop="1em"
             fontWeight="900"
             letterSpacing="-2px"
+            marginTop="1em"
             color="white"
             lineHeight={1}
           >
@@ -96,7 +100,7 @@ export default function LoginPage() {
             </Box>
           </Heading>
           <Text fontSize="sm" color="gray.500" letterSpacing="0.04em">
-            Encontre o rolê certo para você.
+            Sua conta, seus rolês.
           </Text>
         </Stack>
 
@@ -104,8 +108,8 @@ export default function LoginPage() {
         <Box
           borderRadius="24px"
           p="1px"
-          bg="linear-gradient(135deg, rgba(208, 101, 74, 0.5) 0%, rgba(255,255,255,0.06) 50%, rgba(224,56,0,0.3) 100%)"
-          boxShadow="0 24px 64px rgba(56,0,224,0.15), 0 4px 24px rgba(0,0,0,0.4)"
+          bg="linear-gradient(135deg, rgba(0,224,56,0.3) 0%, rgba(255,255,255,0.06) 50%, rgba(56,0,224,0.4) 100%)"
+          boxShadow="0 24px 64px rgba(56,0,224,0.12), 0 4px 24px rgba(0,0,0,0.4)"
         >
           <Box
             bg="rgba(18,18,26,0.95)"
@@ -113,15 +117,36 @@ export default function LoginPage() {
             p={8}
             backdropFilter="blur(20px)"
           >
-            <Stack spacing={6} as="form" onSubmit={handleSubmit}>
-              <Stack spacing={1}>
+            <Stack spacing={5} as="form" onSubmit={handleSubmit}>
+              <Stack spacing={1} mb={1}>
                 <Heading size="lg" color="white" fontWeight="800" letterSpacing="-0.5px">
-                  Bem-vindo de volta
+                  Criar conta
                 </Heading>
                 <Text fontSize="sm" color="gray.500">
-                  Entre na sua conta para continuar
+                  Comece a descobrir os melhores rolês
                 </Text>
               </Stack>
+
+              <FormControl isRequired>
+                <FormLabel fontSize="xs" color="gray.400" mb={1.5} letterSpacing="0.08em" textTransform="uppercase" fontWeight="600">
+                  Nome
+                </FormLabel>
+                <Input
+                  type="text"
+                  placeholder="João das Neves"
+                  value={nome}
+                  onChange={(e) => setNome(e.target.value)}
+                  size="lg"
+                  borderRadius="12px"
+                  bg="rgba(255,255,255,0.04)"
+                  border="1px solid rgba(255,255,255,0.08)"
+                  color="white"
+                  _placeholder={{ color: "gray.600" }}
+                  _hover={{ border: "1px solid rgba(56,0,224,0.4)", bg: "rgba(255,255,255,0.06)" }}
+                  _focus={{ border: "1px solid #3800e0", bg: "rgba(56,0,224,0.08)", boxShadow: "0 0 0 3px rgba(56,0,224,0.15)", outline: "none" }}
+                  transition="all 0.2s"
+                />
+              </FormControl>
 
               <FormControl isRequired>
                 <FormLabel fontSize="xs" color="gray.400" mb={1.5} letterSpacing="0.08em" textTransform="uppercase" fontWeight="600">
@@ -186,21 +211,30 @@ export default function LoginPage() {
                 isLoading={loading}
                 fontWeight="700"
                 fontSize="md"
-                bg="linear-gradient(135deg, #e05600 0%, #5c1aff 100%)"
+                bg="linear-gradient(135deg, #e03400 0%, #5c1aff 100%)"
                 color="white"
                 border="none"
                 _hover={{
-                  bg: "linear-gradient(135deg, #fc432a 0%, #6e2aff 100%)",
+                  bg: "linear-gradient(135deg, #f07510 0%, #6e2aff 100%)",
                   transform: "translateY(-1px)",
                   boxShadow: "0 8px 32px rgba(56,0,224,0.45)",
                 }}
                 _active={{ transform: "translateY(0)", boxShadow: "0 4px 16px rgba(56,0,224,0.35)" }}
-                boxShadow="0 4px 20px rgba(252, 92, 60, 0.3)"
+                boxShadow="0 4px 20px rgba(56,0,224,0.3)"
                 transition="all 0.2s"
                 h="52px"
+                mt={1}
               >
-                Continuar →
+                Criar conta →
               </Button>
+
+              {/* Success hint */}
+              <HStack justify="center" spacing={2} pt={1}>
+                <Box w="6px" h="6px" borderRadius="full" bg="#00e038" boxShadow="0 0 8px rgba(0,224,56,0.6)" />
+                <Text fontSize="xs" color="gray.600">
+                  Conta verificada imediatamente após o cadastro
+                </Text>
+              </HStack>
             </Stack>
           </Box>
         </Box>
@@ -208,18 +242,18 @@ export default function LoginPage() {
         {/* Footer */}
         <HStack justify="center" mt={6} spacing={1}>
           <Text fontSize="sm" color="gray.500">
-            Não tem uma conta?
+            Já tem uma conta?
           </Text>
           <Button
             as={NextLink}
-            href="/register"
+            href="/login"
             variant="link"
             fontSize="sm"
             fontWeight="700"
             color="#3800e0"
             _hover={{ color: "#5c1aff", textDecoration: "none" }}
           >
-            Criar conta
+            Entrar
           </Button>
         </HStack>
 

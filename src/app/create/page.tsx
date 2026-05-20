@@ -67,6 +67,48 @@ export default function CreateEventPage() {
   const mapContainerRef = useRef<HTMLDivElement>(null);
   const gMapRef = useRef<google.maps.Map | null>(null);
   const markerRef = useRef<google.maps.Marker | null>(null);
+  const userMarkerRef = useRef<google.maps.Marker | null>(null);
+
+  const DARK_STYLE: google.maps.MapTypeStyle[] = [
+    { elementType: "geometry", stylers: [{ color: "#0b0b0f" }] },
+    { elementType: "labels.text.stroke", stylers: [{ color: "#0b0b0f" }] },
+    { elementType: "labels.text.fill", stylers: [{ color: "#6b6b80" }] },
+    { featureType: "road", elementType: "geometry", stylers: [{ color: "#1a1a24" }] },
+    { featureType: "road", elementType: "geometry.stroke", stylers: [{ color: "#12121a" }] },
+    { featureType: "road.highway", elementType: "geometry", stylers: [{ color: "#1f1f2e" }] },
+    { featureType: "water", elementType: "geometry", stylers: [{ color: "#06060a" }] },
+    { featureType: "poi", elementType: "geometry", stylers: [{ color: "#12121a" }] },
+    { featureType: "poi.park", elementType: "geometry", stylers: [{ color: "#0e1a0e" }] },
+    { featureType: "administrative", elementType: "geometry.stroke", stylers: [{ color: "#1a1a24" }] },
+    { featureType: "poi", elementType: "labels", stylers: [{ visibility: "off" }] },
+    { featureType: "poi.business", elementType: "labels.icon", stylers: [{ visibility: "on" }] },
+    { featureType: "poi.business", elementType: "labels.text", stylers: [{ visibility: "on" }, { color: "#9999bb" }] },
+    { featureType: "poi.attraction", elementType: "labels.icon", stylers: [{ visibility: "on" }] },
+    { featureType: "poi.attraction", elementType: "labels.text", stylers: [{ visibility: "on" }, { color: "#9999bb" }] },
+    { featureType: "transit", elementType: "geometry", stylers: [{ color: "#12121a" }] },
+    { featureType: "transit", elementType: "labels", stylers: [{ visibility: "off" }] },
+  ];
+
+  const USER_PIN = `data:image/svg+xml;charset=UTF-8,${encodeURIComponent(`
+    <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 20 20">
+      <circle cx="10" cy="10" r="9" fill="#4285F4" stroke="white" stroke-width="2"/>
+      <circle cx="10" cy="10" r="4" fill="white"/>
+    </svg>`)}`;
+
+  function placeUserDot(lat: number, lng: number) {
+    if (!gMapRef.current) return;
+    if (userMarkerRef.current) {
+      userMarkerRef.current.setPosition({ lat, lng });
+    } else {
+      userMarkerRef.current = new google.maps.Marker({
+        map: gMapRef.current,
+        position: { lat, lng },
+        icon: { url: USER_PIN, anchor: new google.maps.Point(10, 10) },
+        title: "Sua localização",
+        zIndex: 10,
+      });
+    }
+  }
 
   function initMap() {
     if (!mapContainerRef.current || typeof google === "undefined") return;
@@ -80,16 +122,7 @@ export default function CreateEventPage() {
       disableDefaultUI: true,
       zoomControl: true,
       gestureHandling: "cooperative",
-      styles: [
-        { elementType: "geometry", stylers: [{ color: "#0b0b0f" }] },
-        { elementType: "labels.text.stroke", stylers: [{ color: "#0b0b0f" }] },
-        { elementType: "labels.text.fill", stylers: [{ color: "#6b6b80" }] },
-        { featureType: "road", elementType: "geometry", stylers: [{ color: "#1a1a24" }] },
-        { featureType: "road.highway", elementType: "geometry", stylers: [{ color: "#1f1f2e" }] },
-        { featureType: "water", elementType: "geometry", stylers: [{ color: "#06060a" }] },
-        { featureType: "poi", elementType: "labels", stylers: [{ visibility: "off" }] },
-        { featureType: "transit", elementType: "labels", stylers: [{ visibility: "off" }] },
-      ],
+      styles: DARK_STYLE,
     });
 
     gMapRef.current = map;
@@ -99,10 +132,11 @@ export default function CreateEventPage() {
       placePin(e.latLng.lat(), e.latLng.lng());
     });
 
-    // Center on user's GPS if available
+    // Center on user's GPS and place the blue dot
     navigator.geolocation?.getCurrentPosition((pos) => {
-      const center = { lat: pos.coords.latitude, lng: pos.coords.longitude };
-      map.setCenter(center);
+      const { latitude: lat, longitude: lng } = pos.coords;
+      map.setCenter({ lat, lng });
+      placeUserDot(lat, lng);
     });
   }
 
@@ -157,6 +191,7 @@ export default function CreateEventPage() {
       const { latitude: lat, longitude: lng } = pos.coords;
       gMapRef.current?.setCenter({ lat, lng });
       gMapRef.current?.setZoom(16);
+      placeUserDot(lat, lng);
       placePin(lat, lng);
     });
   }

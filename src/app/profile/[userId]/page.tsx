@@ -32,6 +32,26 @@ import AuthGuard from "@/components/auth/AuthGuard";
 import BottomNav from "@/components/layout/BottomNav";
 import { getPublicProfile, getUserReviews, submitReview, type AvaliacaoResponse, type PublicUserProfile } from "@/lib/api/users";
 
+function TrustScoreBar({ score }: { score: number }) {
+  const pct = Math.min(Math.max(score, 0), 100);
+  const color = pct >= 75 ? "green.400" : pct >= 40 ? "brand.400" : "red.400";
+  return (
+    <Box>
+      <Flex justify="space-between" mb={1}>
+        <Text fontSize="xs" color="gray.500" textTransform="uppercase" letterSpacing="wider">
+          Trust Score
+        </Text>
+        <Text fontSize="xs" fontWeight="bold" color={color}>
+          {pct}
+        </Text>
+      </Flex>
+      <Box bg="surface.input" borderRadius="full" h="6px" overflow="hidden">
+        <Box bg={color} h="full" w={`${pct}%`} borderRadius="full" transition="width 0.6s ease" />
+      </Box>
+    </Box>
+  );
+}
+
 function BackIcon() {
   return (
     <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">

@@ -2,7 +2,6 @@
 "use client";
 
 import { useEffect, useRef, useState } from "react";
-import Script from "next/script";
 import { Box } from "@chakra-ui/react";
 import type { NearbyEvent } from "@/lib/api/events";
 import type { GeoPosition } from "@/hooks/useGeolocation";
@@ -195,20 +194,15 @@ export default function MapView({ events = [], userPosition, onEventClick }: Map
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [positioned, userPosition]);
 
-  // Hot-reload / dev init when google is already available on re-mount
+  // Wait for the globally loaded Google Maps script (layout.tsx)
   useEffect(() => {
-    if (typeof google !== "undefined") initMap();
+    if (typeof google !== "undefined") { initMap(); return; }
+    const id = setInterval(() => {
+      if (typeof google !== "undefined") { clearInterval(id); initMap(); }
+    }, 100);
+    return () => clearInterval(id);
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
-  return (
-    <>
-      <Script
-        src={`https://maps.googleapis.com/maps/api/js?key=${process.env.NEXT_PUBLIC_GOOGLE_MAPS_KEY}&libraries=visualization`}
-        strategy="afterInteractive"
-        onLoad={initMap}
-      />
-      <Box ref={containerRef} w="full" h="full" />
-    </>
-  );
+  return <Box ref={containerRef} w="full" h="full" />;
 }

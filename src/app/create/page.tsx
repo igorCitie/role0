@@ -1,7 +1,8 @@
 "use client";
 
+/// <reference types="@types/google.maps" />
 import { useRouter } from "next/navigation";
-import { useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import {
   Box,
   Button,
@@ -10,17 +11,16 @@ import {
   FormControl,
   FormLabel,
   Heading,
-  HStack,
+  Stack,
+  Tag,
+  Text,
+  Textarea,
   Input,
   NumberDecrementStepper,
   NumberIncrementStepper,
   NumberInput,
   NumberInputField,
   NumberInputStepper,
-  Stack,
-  Tag,
-  Text,
-  Textarea,
   useToast,
 } from "@chakra-ui/react";
 import AuthGuard from "@/components/auth/AuthGuard";
@@ -57,11 +57,103 @@ export default function CreateEventPage() {
   const [titulo, setTitulo] = useState("");
   const [descricao, setDescricao] = useState("");
   const [capacidadeMaxima, setCapacidadeMaxima] = useState(10);
-  const [latitude, setLatitude] = useState("");
-  const [longitude, setLongitude] = useState("");
+  const [latitude, setLatitude] = useState<number | null>(null);
+  const [longitude, setLongitude] = useState<number | null>(null);
+  const [pickedAddress, setPickedAddress] = useState<string>("");
   const [horarioInicio, setHorarioInicio] = useState("");
   const [vibeTags, setVibeTags] = useState<VibeTag[]>([]);
   const [loading, setLoading] = useState(false);
+
+  const mapContainerRef = useRef<HTMLDivElement>(null);
+  const gMapRef = useRef<google.maps.Map | null>(null);
+  const markerRef = useRef<google.maps.Marker | null>(null);
+
+  function initMap() {
+    if (!mapContainerRef.current || typeof google === "undefined") return;
+    if (gMapRef.current) return; // already initialised
+
+    const defaultCenter = { lat: -2.5307, lng: -44.3068 }; // São Luís, MA
+
+    const map = new google.maps.Map(mapContainerRef.current, {
+      center: defaultCenter,
+      zoom: 14,
+      disableDefaultUI: true,
+      zoomControl: true,
+      gestureHandling: "cooperative",
+      styles: [
+        { elementType: "geometry", stylers: [{ color: "#0b0b0f" }] },
+        { elementType: "labels.text.stroke", stylers: [{ color: "#0b0b0f" }] },
+        { elementType: "labels.text.fill", stylers: [{ color: "#6b6b80" }] },
+        { featureType: "road", elementType: "geometry", stylers: [{ color: "#1a1a24" }] },
+        { featureType: "road.highway", elementType: "geometry", stylers: [{ color: "#1f1f2e" }] },
+        { featureType: "water", elementType: "geometry", stylers: [{ color: "#06060a" }] },
+        { featureType: "poi", elementType: "labels", stylers: [{ visibility: "off" }] },
+        { featureType: "transit", elementType: "labels", stylers: [{ visibility: "off" }] },
+      ],
+    });
+
+    gMapRef.current = map;
+
+    map.addListener("click", (e: google.maps.MapMouseEvent) => {
+      if (!e.latLng) return;
+      placePin(e.latLng.lat(), e.latLng.lng());
+    });
+
+    // Center on user's GPS if available
+    navigator.geolocation?.getCurrentPosition((pos) => {
+      const center = { lat: pos.coords.latitude, lng: pos.coords.longitude };
+      map.setCenter(center);
+    });
+  }
+
+  // Wait for the globally loaded Google Maps script (layout.tsx)
+  useEffect(() => {
+    if (typeof google !== "undefined") { initMap(); return; }
+    const id = setInterval(() => {
+      if (typeof google !== "undefined") { clearInterval(id); initMap(); }
+    }, 100);
+    return () => clearInterval(id);
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
+  function placePin(lat: number, lng: number) {
+    setLatitude(lat);
+    setLongitude(lng);
+
+    if (markerRef.current) {
+      markerRef.current.setPosition({ lat, lng });
+    } else {
+      markerRef.current = new google.maps.Marker({
+        map: gMapRef.current!,
+        position: { lat, lng },
+        icon: {
+          path: google.maps.SymbolPath.CIRCLE,
+          scale: 10,
+          fillColor: "#e03800",
+          fillOpacity: 1,
+          strokeColor: "#ffffff",
+          strokeWeight: 2,
+        },
+      });
+    }
+
+    // Reverse geocode to show human-readable address
+    const geocoder = new google.maps.Geocoder();
+    geocoder.geocode({ location: { lat, lng } }, (results, status) => {
+      if (status === "OK" && results?.[0]) {
+        setPickedAddress(results[0].formatted_address);
+      }
+    });
+  }
+
+  function handleUseMyLocation() {
+    navigator.geolocation?.getCurrentPosition((pos) => {
+      const { latitude: lat, longitude: lng } = pos.coords;
+      gMapRef.current?.setCenter({ lat, lng });
+      gMapRef.current?.setZoom(16);
+      placePin(lat, lng);
+    });
+  }
 
   function toggleTag(tag: VibeTag) {
     setVibeTags((prev) =>
@@ -72,6 +164,11 @@ export default function CreateEventPage() {
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
 
+    if (latitude === null || longitude === null) {
+      toast({ title: "Defina o local no mapa", status: "warning", duration: 3000, isClosable: true });
+      return;
+    }
+
     const token = localStorage.getItem("token") ?? "";
 
     setLoading(true);
@@ -81,8 +178,8 @@ export default function CreateEventPage() {
           titulo,
           descricao,
           capacidadeMaxima,
-          latitude: parseFloat(latitude),
-          longitude: parseFloat(longitude),
+          latitude: latitude,
+          longitude: longitude,
           horarioInicio: new Date(horarioInicio).toISOString().replace("Z", ""),
           vibeTags,
         },
@@ -236,39 +333,37 @@ export default function CreateEventPage() {
               <FormLabel fontSize="xs" color="gray.500" textTransform="uppercase" letterSpacing="wider" mb={1}>
                 Localização
               </FormLabel>
-              <HStack spacing={2}>
-                <Input
-                  placeholder="Latitude"
-                  value={latitude}
-                  onChange={(e) => setLatitude(e.target.value)}
-                  size="lg"
-                  borderRadius="xl"
-                  type="number"
-                  step="any"
-                />
-                <Input
-                  placeholder="Longitude"
-                  value={longitude}
-                  onChange={(e) => setLongitude(e.target.value)}
-                  size="lg"
-                  borderRadius="xl"
-                  type="number"
-                  step="any"
-                />
-              </HStack>
+
+              {/* Map picker */}
+              <Box
+                ref={mapContainerRef}
+                h="260px"
+                borderRadius="xl"
+                overflow="hidden"
+                border="1px solid"
+                borderColor={latitude !== null ? "brand.500" : "whiteAlpha.100"}
+                transition="border-color 0.2s"
+                cursor="crosshair"
+              />
+
+              {/* Feedback */}
+              {latitude !== null ? (
+                <Text fontSize="xs" color="gray.400" mt={1} noOfLines={1}>
+                  📍 {pickedAddress || `${latitude.toFixed(5)}, ${longitude?.toFixed(5)}`}
+                </Text>
+              ) : (
+                <Text fontSize="xs" color="gray.600" mt={1}>
+                  Toque no mapa para marcar o local do rolê
+                </Text>
+              )}
+
               <Button
                 size="xs"
                 variant="outline"
                 colorScheme="brand"
                 borderRadius="full"
-                mt={1}
-                onClick={() => {
-                  if (!navigator.geolocation) return;
-                  navigator.geolocation.getCurrentPosition((pos) => {
-                    setLatitude(String(pos.coords.latitude));
-                    setLongitude(String(pos.coords.longitude));
-                  });
-                }}
+                mt={2}
+                onClick={handleUseMyLocation}
               >
                 📍 Usar minha localização
               </Button>

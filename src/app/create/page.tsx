@@ -21,6 +21,7 @@ import {
   Tag,
   Text,
   Textarea,
+  useToast,
 } from "@chakra-ui/react";
 import AuthGuard from "@/components/auth/AuthGuard";
 import { createEvent } from "@/lib/api/events";
@@ -51,6 +52,7 @@ const ALL_VIBE_TAGS: { value: VibeTag; label: string }[] = [
 
 export default function CreateEventPage() {
   const router = useRouter();
+  const toast = useToast();
 
   const [titulo, setTitulo] = useState("");
   const [descricao, setDescricao] = useState("");
@@ -59,7 +61,6 @@ export default function CreateEventPage() {
   const [longitude, setLongitude] = useState("");
   const [horarioInicio, setHorarioInicio] = useState("");
   const [vibeTags, setVibeTags] = useState<VibeTag[]>([]);
-  const [error, setError] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
 
   function toggleTag(tag: VibeTag) {
@@ -70,7 +71,6 @@ export default function CreateEventPage() {
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
-    setError(null);
 
     const token = localStorage.getItem("token") ?? "";
 
@@ -88,13 +88,18 @@ export default function CreateEventPage() {
         },
         token,
       );
+      toast({ title: "Rolê criado! 🎉", status: "success", duration: 2500, isClosable: true });
       router.push("/home");
     } catch (err) {
-      if (err instanceof Error && err.message.startsWith("API 400")) {
-        setError("Verifique os campos e tente novamente.");
-      } else {
-        setError(err instanceof Error ? err.message : "Erro ao criar evento.");
-      }
+      toast({
+        title: "Erro ao criar rolê",
+        description: err instanceof Error && err.message.startsWith("API 400")
+          ? "Verifique os campos e tente novamente."
+          : err instanceof Error ? err.message : "Tente novamente.",
+        status: "error",
+        duration: 4000,
+        isClosable: true,
+      });
     } finally {
       setLoading(false);
     }
@@ -251,9 +256,22 @@ export default function CreateEventPage() {
                   step="any"
                 />
               </HStack>
-              <Text fontSize="xs" color="gray.600" mt={1}>
-                Dica: clique no mapa para pegar as coordenadas.
-              </Text>
+              <Button
+                size="xs"
+                variant="outline"
+                colorScheme="brand"
+                borderRadius="full"
+                mt={1}
+                onClick={() => {
+                  if (!navigator.geolocation) return;
+                  navigator.geolocation.getCurrentPosition((pos) => {
+                    setLatitude(String(pos.coords.latitude));
+                    setLongitude(String(pos.coords.longitude));
+                  });
+                }}
+              >
+                📍 Usar minha localização
+              </Button>
             </FormControl>
 
             {/* Vibe Tags */}
@@ -289,12 +307,6 @@ export default function CreateEventPage() {
                 })}
               </Flex>
             </FormControl>
-
-            {error && (
-              <Text color="red.400" fontSize="sm">
-                {error}
-              </Text>
-            )}
 
             <Button
               type="submit"

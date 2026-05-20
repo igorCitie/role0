@@ -1,7 +1,9 @@
 "use client";
 
 import { useEffect, useRef, useState } from "react";
+import { useRouter } from "next/navigation";
 import {
+  Avatar,
   Badge,
   Box,
   Button,
@@ -27,6 +29,7 @@ import {
   Text,
   Textarea,
   useDisclosure,
+  useToast,
 } from "@chakra-ui/react";
 import {
   cancelEvent,
@@ -37,12 +40,20 @@ import {
   judgeRequest,
   listParticipants,
   listRequests,
+  triggerPanic,
   type EventDetail,
   type EditEventRequest,
-  type JoinRequest,
   type Participant,
 } from "@/lib/api/events";
 import type { GeoPosition } from "@/hooks/useGeolocation";
+import { getPublicProfile } from "@/lib/api/users";
+
+type JoinRequestWithName = {
+  solicitacaoId: string;
+  usuarioId: string;
+  trustScore: number;
+  nomeDisplay?: string;
+};
 
 function XIcon() {
   return (
@@ -94,9 +105,10 @@ export default function EventBottomSheet({
   onClose,
   onEventMutated,
 }: EventBottomSheetProps) {
+  const router = useRouter();
+  const toast = useToast();
   const [detail, setDetail] = useState<EventDetail | null>(null);
   const [loading, setLoading] = useState(false);
-  const [actionError, setActionError] = useState<string | null>(null);
   const [actionLoading, setActionLoading] = useState<string | null>(null); // which action is pending
 
   // Edit modal state
@@ -109,31 +121,49 @@ export default function EventBottomSheet({
   // Requests & participants modals
   const { isOpen: isReqOpen, onOpen: openReq, onClose: closeReq } = useDisclosure();
   const { isOpen: isPaxOpen, onOpen: openPax, onClose: closePax } = useDisclosure();
+  // Persists join requests across close/reopen by storing event IDs
+  const joinedIdsRef = useRef<Set<string>>(new Set());
   const [joinRequested, setJoinRequested] = useState(false);
-  const [requests, setRequests] = useState<JoinRequest[]>([]);
+  const [requestsWithNames, setRequestsWithNames] = useState<JoinRequestWithName[]>([]);
+  const [pendingCount, setPendingCount] = useState(0);
   const [requestsLoading, setRequestsLoading] = useState(false);
   const [judgingId, setJudgingId] = useState<string | null>(null);
   const [participants, setParticipants] = useState<Participant[]>([]);
   const [paxLoading, setPaxLoading] = useState(false);
+  const [panicLoading, setPanicLoading] = useState(false);
 
   useEffect(() => {
-    if (!eventId) { setDetail(null); setActionError(null); setJoinRequested(false); return; }
+    if (!eventId) {
+      setDetail(null); setJoinRequested(false);
+      setPendingCount(0); setRequestsWithNames([]);
+      return;
+    }
+    setJoinRequested(joinedIdsRef.current.has(eventId));
     setLoading(true);
     const token = localStorage.getItem("token") ?? "";
     getEventDetail(eventId, token)
-      .then((d) => {
+      .then(async (d) => {
         setDetail(d);
         setEditTitulo(d.titulo);
         setEditDescricao(d.descricao ?? "");
         setEditCapacity(d.capacidadeMaxima);
+        // Pre-load pending request count for host
+        if (userId && d.host.id === userId) {
+          try {
+            const reqs = await listRequests(eventId, token);
+            setPendingCount(reqs.length);
+          } catch { /* non-critical */ }
+        }
       })
       .finally(() => setLoading(false));
-  }, [eventId]);
+  }, [eventId, userId]);
 
   const visible = !!eventId;
   const token = typeof window !== "undefined" ? localStorage.getItem("token") ?? "" : "";
   const isHost = !!detail && !!userId && detail.host.id === userId;
   const isParticipant = !!detail?.isParticipant;
+
+
 
   const vacancyPct = detail
     ? Math.round((detail.totalAprovados / detail.capacidadeMaxima) * 100)
@@ -142,14 +172,14 @@ export default function EventBottomSheet({
 
   async function handleCheckIn() {
     if (!eventId || !userPosition) return;
-    setActionError(null);
     setActionLoading("checkin");
     try {
       await checkInEvent(eventId, userPosition.lat, userPosition.lng, token);
+      toast({ title: "Check-in realizado! ✅", status: "success", duration: 2500, isClosable: true });
       onEventMutated?.();
       onClose();
     } catch (err) {
-      setActionError(err instanceof Error ? err.message : "Erro no check-in.");
+      toast({ title: "Erro no check-in", description: err instanceof Error ? err.message : "Tente novamente.", status: "error", duration: 3500, isClosable: true });
     } finally {
       setActionLoading(null);
     }
@@ -157,14 +187,14 @@ export default function EventBottomSheet({
 
   async function handleCancel() {
     if (!eventId) return;
-    setActionError(null);
     setActionLoading("cancel");
     try {
       await cancelEvent(eventId, token);
+      toast({ title: "Rolê cancelado.", status: "info", duration: 2500, isClosable: true });
       onEventMutated?.();
       onClose();
     } catch (err) {
-      setActionError(err instanceof Error ? err.message : "Erro ao cancelar.");
+      toast({ title: "Erro ao cancelar", description: err instanceof Error ? err.message : "Tente novamente.", status: "error", duration: 3500, isClosable: true });
     } finally {
       setActionLoading(null);
     }
@@ -172,7 +202,6 @@ export default function EventBottomSheet({
 
   async function handleEdit() {
     if (!eventId) return;
-    setActionError(null);
     setActionLoading("edit");
     const payload: EditEventRequest = {};
     if (editTitulo !== detail?.titulo) payload.titulo = editTitulo;
@@ -180,13 +209,14 @@ export default function EventBottomSheet({
     if (editCapacity !== detail?.capacidadeMaxima) payload.maxCapacity = editCapacity;
     try {
       await editEvent(eventId, payload, token);
+      toast({ title: "Rolê atualizado! ✅", status: "success", duration: 2500, isClosable: true });
       closeEdit();
       // refresh detail
       const updated = await getEventDetail(eventId, token);
       setDetail(updated);
       onEventMutated?.();
     } catch (err) {
-      setActionError(err instanceof Error ? err.message : "Erro ao editar.");
+      toast({ title: "Erro ao editar", description: err instanceof Error ? err.message : "Tente novamente.", status: "error", duration: 3500, isClosable: true });
     } finally {
       setActionLoading(null);
     }
@@ -194,13 +224,14 @@ export default function EventBottomSheet({
 
   async function handleJoin() {
     if (!eventId) return;
-    setActionError(null);
     setActionLoading("join");
     try {
       await joinEvent(eventId, token);
+      joinedIdsRef.current.add(eventId);
       setJoinRequested(true);
+      toast({ title: "Solicitação enviada! ⏳", description: "Aguarde a aprovação do anfitrião.", status: "success", duration: 3000, isClosable: true });
     } catch (err) {
-      setActionError(err instanceof Error ? err.message : "Erro ao solicitar participação.");
+      toast({ title: "Erro ao solicitar", description: err instanceof Error ? err.message : "Tente novamente.", status: "error", duration: 3500, isClosable: true });
     } finally {
       setActionLoading(null);
     }
@@ -211,7 +242,11 @@ export default function EventBottomSheet({
     setJudgingId(reqId);
     try {
       await judgeRequest(eventId, reqId, aprovada, token);
-      setRequests((prev) => prev.filter((r) => r.solicitacaoId !== reqId));
+      setRequestsWithNames((prev) => prev.filter((r) => r.solicitacaoId !== reqId));
+      setPendingCount((c) => Math.max(0, c - 1));
+      if (aprovada) {
+        setDetail((d) => d ? { ...d, totalAprovados: d.totalAprovados + 1 } : d);
+      }
       onEventMutated?.();
     } catch {
       // leave item in list so user can retry
@@ -224,9 +259,34 @@ export default function EventBottomSheet({
     if (!eventId) return;
     setRequestsLoading(true);
     try {
-      setRequests(await listRequests(eventId, token));
+      const reqs = await listRequests(eventId, token);
+      // Resolve display names in parallel
+      const withNames = await Promise.all(
+        reqs.map(async (req) => {
+          try {
+            const profile = await getPublicProfile(req.usuarioId, token);
+            return { ...req, nomeDisplay: profile.nomeDisplay };
+          } catch {
+            return { ...req, nomeDisplay: undefined };
+          }
+        }),
+      );
+      setRequestsWithNames(withNames);
+      setPendingCount(withNames.length);
     } finally {
       setRequestsLoading(false);
+    }
+  }
+
+  async function handlePanic() {
+    if (!eventId) return;
+    setPanicLoading(true);
+    try {
+      await triggerPanic(eventId, token);
+    } catch {
+      // server always returns 202 — only swallow network errors
+    } finally {
+      setPanicLoading(false);
     }
   }
 
@@ -250,10 +310,10 @@ export default function EventBottomSheet({
         pointerEvents={visible ? "auto" : "none"}
         onClick={onClose}
       >
-        {/* Sheet */}
+        {/* Sheet — sits above the BottomNav (73px) */}
         <Box
           position="absolute"
-          bottom={0}
+          bottom="73px"
           left={0}
           right={0}
           bg="surface.card"
@@ -311,7 +371,16 @@ export default function EventBottomSheet({
                 </HStack>
                 <HStack color="gray.400" fontSize="xs" gap={1}>
                   <UserIcon />
-                  <Text>{detail.host.nomeDisplay}</Text>
+                  <Text
+                    as="button"
+                    color="gray.400"
+                    _hover={{ color: "brand.400", textDecoration: "underline" }}
+                    transition="color 0.15s"
+                    cursor="pointer"
+                    onClick={() => router.push(`/profile/${detail.host.id}?eventId=${detail.id}`)}
+                  >
+                    {detail.host.nomeDisplay}
+                  </Text>
                   <Text color="brand.400" fontWeight="bold">★ {detail.host.trustScore.toFixed(1)}</Text>
                 </HStack>
               </Stack>
@@ -334,8 +403,14 @@ export default function EventBottomSheet({
               {/* Weather */}
               {detail.clima && (
                 <HStack bg="surface.bg" borderRadius="xl" px={3} py={2} gap={2} border="1px solid" borderColor="whiteAlpha.100">
-                  {/* eslint-disable-next-line @next/next/no-img-element */}
-                  <img src={detail.clima.icon} alt={detail.clima.condition} width={28} height={28} />
+                  <Text fontSize="xl" lineHeight="1">
+                    {/rain|chuva/i.test(detail.clima.condition) ? "🌧️"
+                      : /thunder|trovoada|storm/i.test(detail.clima.condition) ? "⛈️"
+                      : /snow|neve/i.test(detail.clima.condition) ? "❄️"
+                      : /cloud|nublado|overcast/i.test(detail.clima.condition) ? "☁️"
+                      : /mist|fog|neblina/i.test(detail.clima.condition) ? "🌫️"
+                      : "☀️"}
+                  </Text>
                   <Text fontSize="sm" color="gray.300">
                     {detail.clima.temp.toFixed(0)}°C · {detail.clima.condition}
                   </Text>
@@ -347,16 +422,12 @@ export default function EventBottomSheet({
                 <Text fontSize="sm" color="gray.400" lineHeight="tall">{detail.descricao}</Text>
               )}
 
-              {actionError && (
-                <Text color="red.400" fontSize="xs">{actionError}</Text>
-              )}
-
               <Divider borderColor="whiteAlpha.100" />
 
               {/* ── Action bar ── */}
               <Stack spacing={2}>
-                {/* Participant: check-in */}
-                {isParticipant && detail.status === "CRIADO" && (
+                {/* Participant: check-in (available for all active statuses) */}
+                {isParticipant && detail.status !== "EXPIRADO" && (
                   <Button
                     size="md"
                     borderRadius="xl"
@@ -399,33 +470,61 @@ export default function EventBottomSheet({
                         Cancelar rolê
                       </Button>
                     </HStack>
+                    {/* Pending requests button with live count badge */}
                     <Button
                       size="sm"
-                      variant="ghost"
-                      color="gray.400"
-                      _hover={{ color: "white" }}
+                      variant={pendingCount > 0 ? "solid" : "ghost"}
+                      colorScheme={pendingCount > 0 ? "orange" : undefined}
+                      color={pendingCount > 0 ? undefined : "gray.400"}
+                      _hover={pendingCount > 0 ? undefined : { color: "white" }}
                       fontWeight="medium"
+                      borderRadius="xl"
                       onClick={() => { handleLoadRequests(); openReq(); }}
                     >
-                      Ver Solicitações Pendentes
+                      {pendingCount > 0
+                        ? `🔔 ${pendingCount} solicitaç${pendingCount === 1 ? "ão" : "ões"} pendente${pendingCount === 1 ? "" : "s"}`
+                        : "Ver Solicitações"}
                     </Button>
                   </Stack>
                 )}
 
-                {/* Guest: request to join */}
-                {!isHost && !isParticipant && (
-                  <Button
-                    size="md"
-                    borderRadius="xl"
-                    variant="outline"
-                    colorScheme="brand"
-                    fontWeight="bold"
-                    isLoading={actionLoading === "join"}
-                    isDisabled={joinRequested}
-                    onClick={handleJoin}
-                  >
-                    {joinRequested ? "Solicitação enviada ✓" : "Pedir para Participar"}
-                  </Button>
+                {/* Guest: request to join — only when event is open and has spots */}
+                {!isHost && !isParticipant && (detail.status === "ABERTO_PARA_VAGAS" || detail.status === "CRIADO") && (
+                  <>
+                    {detail.totalAprovados >= detail.capacidadeMaxima ? (
+                      <Button
+                        size="md"
+                        borderRadius="xl"
+                        variant="outline"
+                        fontWeight="bold"
+                        isDisabled
+                        colorScheme="gray"
+                      >
+                        Rolê lotado 😔
+                      </Button>
+                    ) : joinRequested ? (
+                      <Button
+                        size="md"
+                        borderRadius="xl"
+                        variant="outline"
+                        fontWeight="bold"
+                        isDisabled
+                        colorScheme="green"
+                      >
+                        Solicitação enviada ✓
+                      </Button>
+                    ) : (
+                      <Button
+                        size="md"
+                        borderRadius="xl"
+                        fontWeight="bold"
+                        isLoading={actionLoading === "join"}
+                        onClick={handleJoin}
+                      >
+                        Pedir para Participar · {detail.capacidadeMaxima - detail.totalAprovados} vaga{detail.capacidadeMaxima - detail.totalAprovados !== 1 ? "s" : ""}
+                      </Button>
+                    )}
+                  </>
                 )}
 
                 {/* Shared: participants list (host + approved) */}
@@ -439,6 +538,21 @@ export default function EventBottomSheet({
                     onClick={() => { handleLoadParticipants(); openPax(); }}
                   >
                     Ver Participantes ({detail.totalAprovados})
+                  </Button>
+                )}
+
+                {/* SOS — available to host and approved participants on active events */}
+                {(isHost || isParticipant) && detail.status !== "EXPIRADO" && (
+                  <Button
+                    size="xs"
+                    variant="ghost"
+                    color="red.600"
+                    _hover={{ color: "red.400" }}
+                    fontWeight="normal"
+                    isLoading={panicLoading}
+                    onClick={handlePanic}
+                  >
+                    🚨 SOS — Emergência
                   </Button>
                 )}
               </Stack>
@@ -517,21 +631,38 @@ export default function EventBottomSheet({
       <Modal isOpen={isReqOpen} onClose={closeReq} isCentered size="sm">
         <ModalOverlay backdropFilter="blur(4px)" bg="blackAlpha.700" />
         <ModalContent bg="surface.card" border="1px solid" borderColor="whiteAlpha.100" borderRadius="2xl" mx={4}>
-          <ModalHeader color="white" fontSize="md">Solicitações Pendentes</ModalHeader>
+          <ModalHeader color="white" fontSize="md">
+            <Flex justify="space-between" align="center">
+              <Text>Fila de Entrada{requestsWithNames.length > 0 ? ` (${requestsWithNames.length})` : ""}</Text>
+              <Button
+                size="xs"
+                variant="ghost"
+                color="gray.500"
+                _hover={{ color: "white" }}
+                isLoading={requestsLoading}
+                onClick={handleLoadRequests}
+                mr={8}
+              >
+                ↻ Atualizar
+              </Button>
+            </Flex>
+          </ModalHeader>
           <ModalCloseButton color="gray.400" />
           <ModalBody pb={6}>
             {requestsLoading ? (
               <Stack spacing={3}>
-                <Skeleton h="48px" borderRadius="xl" />
-                <Skeleton h="48px" borderRadius="xl" />
+                {[...Array(3)].map((_, i) => (
+                  <Skeleton key={i} h="60px" borderRadius="xl" startColor="surface.bg" endColor="surface.input" />
+                ))}
               </Stack>
-            ) : requests.length === 0 ? (
-              <Text color="gray.500" textAlign="center" fontSize="sm" py={4}>
-                Nenhuma solicitação pendente.
-              </Text>
+            ) : requestsWithNames.length === 0 ? (
+              <Flex direction="column" align="center" py={6} gap={2}>
+                <Text fontSize="2xl">✅</Text>
+                <Text color="gray.500" fontSize="sm">Nenhuma solicitação pendente.</Text>
+              </Flex>
             ) : (
               <Stack spacing={3}>
-                {requests.map((req) => (
+                {requestsWithNames.map((req) => (
                   <Flex
                     key={req.solicitacaoId}
                     align="center"
@@ -539,19 +670,29 @@ export default function EventBottomSheet({
                     bg="surface.bg"
                     borderRadius="xl"
                     px={3}
-                    py={2}
+                    py={3}
                     border="1px solid"
                     borderColor="whiteAlpha.100"
+                    gap={3}
                   >
-                    <Box>
-                      <Text fontSize="sm" color="gray.200" fontWeight="medium">
-                        {req.solicitacaoId.slice(0, 8)}…
-                      </Text>
-                      <Text fontSize="xs" color="brand.400">★ {req.trustScore.toFixed(1)}</Text>
-                    </Box>
-                    <HStack spacing={2}>
+                    <HStack spacing={3} flex={1} minW={0}>
+                      <Avatar
+                        size="sm"
+                        name={req.nomeDisplay ?? req.usuarioId}
+                        bg="brand.900"
+                        color="brand.200"
+                        flexShrink={0}
+                      />
+                      <Box minW={0}>
+                        <Text fontSize="sm" color="gray.100" fontWeight="semibold" noOfLines={1}>
+                          {req.nomeDisplay ?? `Usuário ${req.usuarioId.slice(0, 8)}…`}
+                        </Text>
+                        <Text fontSize="xs" color="brand.400">★ {req.trustScore.toFixed(1)} trust score</Text>
+                      </Box>
+                    </HStack>
+                    <HStack spacing={2} flexShrink={0}>
                       <Button
-                        size="xs"
+                        size="sm"
                         colorScheme="green"
                         borderRadius="lg"
                         isLoading={judgingId === req.solicitacaoId}
@@ -560,7 +701,7 @@ export default function EventBottomSheet({
                         Aceitar
                       </Button>
                       <Button
-                        size="xs"
+                        size="sm"
                         colorScheme="red"
                         variant="outline"
                         borderRadius="lg"
@@ -582,45 +723,62 @@ export default function EventBottomSheet({
       <Modal isOpen={isPaxOpen} onClose={closePax} isCentered size="sm">
         <ModalOverlay backdropFilter="blur(4px)" bg="blackAlpha.700" />
         <ModalContent bg="surface.card" border="1px solid" borderColor="whiteAlpha.100" borderRadius="2xl" mx={4}>
-          <ModalHeader color="white" fontSize="md">Participantes</ModalHeader>
+          <ModalHeader color="white" fontSize="md">
+            Participantes{participants.length > 0 ? ` (${participants.length})` : ""}
+          </ModalHeader>
           <ModalCloseButton color="gray.400" />
           <ModalBody pb={6}>
             {paxLoading ? (
               <Stack spacing={3}>
-                <Skeleton h="48px" borderRadius="xl" />
-                <Skeleton h="48px" borderRadius="xl" />
+                {[...Array(3)].map((_, i) => (
+                  <Skeleton key={i} h="60px" borderRadius="xl" startColor="surface.bg" endColor="surface.input" />
+                ))}
               </Stack>
             ) : participants.length === 0 ? (
-              <Text color="gray.500" textAlign="center" fontSize="sm" py={4}>
-                Nenhum participante ainda.
-              </Text>
+              <Flex direction="column" align="center" py={6} gap={2}>
+                <Text fontSize="2xl">👥</Text>
+                <Text color="gray.500" fontSize="sm">Nenhum participante ainda.</Text>
+              </Flex>
             ) : (
               <Stack spacing={2}>
                 {participants.map((p) => (
                   <Flex
                     key={p.usuarioId}
                     align="center"
-                    justify="space-between"
                     bg="surface.bg"
                     borderRadius="xl"
                     px={3}
-                    py={2}
+                    py={3}
                     border="1px solid"
                     borderColor="whiteAlpha.100"
+                    gap={3}
                   >
-                    <Box>
-                      <Text fontSize="sm" color="gray.200" fontWeight="medium">{p.nomeDisplay}</Text>
-                      <Text fontSize="xs" color="brand.400">★ {p.trustScore.toFixed(1)}</Text>
+                    <Avatar
+                      size="sm"
+                      name={p.nomeDisplay}
+                      bg="purple.900"
+                      color="purple.200"
+                      flexShrink={0}
+                    />
+                    <Box flex={1} minW={0}>
+                      <Flex justify="space-between" align="center">
+                        <Text fontSize="sm" color="gray.100" fontWeight="semibold" noOfLines={1}>
+                          {p.nomeDisplay}
+                        </Text>
+                        <Text fontSize="xs" color="brand.400" flexShrink={0} ml={2}>
+                          ★ {p.trustScore.toFixed(1)}
+                        </Text>
+                      </Flex>
+                      {p.vibes.length > 0 && (
+                        <HStack spacing={1} mt={1} flexWrap="wrap">
+                          {p.vibes.slice(0, 3).map((v) => (
+                            <Badge key={v} colorScheme="orange" fontSize="2xs" borderRadius="full" variant="subtle">
+                              {v.replace(/_/g, " ")}
+                            </Badge>
+                          ))}
+                        </HStack>
+                      )}
                     </Box>
-                    {p.vibes.length > 0 && (
-                      <HStack spacing={1} flexWrap="wrap" maxW="50%" justify="flex-end">
-                        {p.vibes.slice(0, 2).map((v) => (
-                          <Badge key={v} colorScheme="orange" fontSize="2xs" borderRadius="full" variant="subtle">
-                            {v.replace(/_/g, " ")}
-                          </Badge>
-                        ))}
-                      </HStack>
-                    )}
                   </Flex>
                 ))}
               </Stack>

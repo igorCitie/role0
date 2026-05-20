@@ -32,3 +32,11 @@ export async function register(data: RegisterRequest): Promise<AuthResponse> {
     body: JSON.stringify(data),
   });
 }
+
+/** Revoke the current JWT on the server (server-side logout) */
+export async function logout(token: string): Promise<void> {
+  await apiFetch<unknown>("/api/v1/auth/session", {
+    method: "DELETE",
+    headers: { Authorization: `Bearer ${token}` },
+  });
+}

@@ -16,6 +16,7 @@ import {
   Text,
 } from "@chakra-ui/react";
 import { register } from "@/lib/api/auth";
+import { getMyProfile } from "@/lib/api/users";
 
 export default function RegisterPage() {
   const router = useRouter();
@@ -32,6 +33,10 @@ export default function RegisterPage() {
     try {
       const { token } = await register({ nome, email, senha });
       localStorage.setItem("token", token);
+      try {
+        const profile = await getMyProfile(token);
+        localStorage.setItem("userId", profile.id);
+      } catch { /* non-critical */ }
       router.push("/home");
     } catch (err) {
       if (err instanceof Error && err.message.startsWith("API 409")) {

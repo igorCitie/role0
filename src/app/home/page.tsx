@@ -7,6 +7,7 @@ import MapView from "@/components/map/MapView";
 import EventBottomSheet from "@/components/map/EventBottomSheet";
 import { useGeolocation } from "@/hooks/useGeolocation";
 import { getNearbyEvents, type NearbyEvent } from "@/lib/api/events";
+import type { VibeTag } from "@/types";
 import { getMyProfile } from "@/lib/api/users";
 import { Box, Flex, Input, InputGroup, InputLeftElement, HStack, Tag, TagLabel, Avatar, Text } from "@chakra-ui/react";
 import { useRouter } from "next/navigation";
@@ -30,47 +31,47 @@ function FilterIcon() {
   );
 }
 
-function BoltIcon() {
-  return (
-    <svg width="11" height="11" viewBox="0 0 24 24" fill="currentColor" stroke="none">
-      <path d="M13 2L4.5 13.5H11L10 22L19.5 10.5H13L13 2Z" />
-    </svg>
-  );
-}
-
-function MusicIcon() {
-  return (
-    <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
-      <path d="M9 18V5l12-2v13" />
-      <circle cx="6" cy="18" r="3" />
-      <circle cx="18" cy="16" r="3" />
-    </svg>
-  );
-}
+const VIBE_CHIPS: { value: VibeTag; label: string }[] = [
+  { value: "CRAFT_BEER", label: "🍺 Beer" },
+  { value: "MUSICA_AO_VIVO", label: "🎵 Música" },
+  { value: "BOARDGAMES", label: "🎲 Jogos" },
+  { value: "CHILL", label: "😌 Chill" },
+  { value: "FESTA", label: "🎉 Festa" },
+  { value: "ESPORTES", label: "⚽ Esportes" },
+];
 
 export default function HomeMapPage() {
   const router = useRouter();
   const { position, error: geoError } = useGeolocation();
   const [events, setEvents] = useState<NearbyEvent[]>([]);
   const [selectedEventId, setSelectedEventId] = useState<string | null>(null);
-  const [userId, setUserId] = useState<string | null>(null);
+  const [userId, setUserId] = useState<string | null>(
+    typeof window !== "undefined" ? localStorage.getItem("userId") : null
+  );
+  const [activeVibes, setActiveVibes] = useState<VibeTag[]>([]);
 
-  // Load current user ID for host detection
+  // Keep userId in sync with localStorage (handles token refresh / account switch)
   useEffect(() => {
     const token = localStorage.getItem("token") ?? "";
     if (!token) return;
-    getMyProfile(token).then((p) => setUserId(p.id)).catch(() => {});
+    getMyProfile(token)
+      .then((p) => {
+        localStorage.setItem("userId", p.id);
+        setUserId(p.id);
+      })
+      .catch(() => {});
   }, []);
 
   function fetchEvents() {
     if (!position) return;
-    getNearbyEvents(position.lat, position.lng, 10)
+    getNearbyEvents(position.lat, position.lng, 10, activeVibes.length ? activeVibes : undefined)
       .then(setEvents)
       .catch(() => { /* silently ignore — radar may be rate-limited */ });
   }
 
-  // Fetch nearby events whenever GPS position changes
-  useEffect(() => { fetchEvents(); }, [position?.lat, position?.lng]);
+  // Fetch nearby events whenever GPS position or vibe filter changes
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  useEffect(() => { fetchEvents(); }, [position?.lat, position?.lng, activeVibes]);
 
   const handleEventClick = useCallback((id: string) => {
     setSelectedEventId(id);
@@ -123,66 +124,59 @@ export default function HomeMapPage() {
                 px={4}
               />
             </InputGroup>
-            <Flex
-              as="button"
-              w="42px"
-              h="42px"
-              borderRadius="full"
-              bg="blackAlpha.700"
-              backdropFilter="blur(8px)"
-              border="1px solid"
-              borderColor="whiteAlpha.100"
-              align="center"
-              justify="center"
-              color="gray.400"
-              flexShrink={0}
-              _hover={{ borderColor: "brand.500", color: "brand.400" }}
-              transition="all 0.15s"
-            >
-              <FilterIcon />
-            </Flex>
           </Flex>
 
-          <HStack spacing={2} mt={3}>
+          <HStack spacing={2} mt={3} overflowX="auto" pb={1} sx={{ scrollbarWidth: "none", "&::-webkit-scrollbar": { display: "none" } }}>
             <Tag
               as="button"
               borderRadius="full"
-              bg="brand.500"
-              color="white"
-              size="sm"
-              px={3}
-              py={1}
-              gap={1}
-              fontWeight="semibold"
-              fontSize="xs"
-              _hover={{ bg: "brand.400" }}
-              transition="background 0.15s"
-            >
-              <BoltIcon />
-              <TagLabel>Trending</TagLabel>
-            </Tag>
-            <Tag
-              as="button"
-              borderRadius="full"
-              bg="blackAlpha.700"
+              bg={activeVibes.length === 0 ? "brand.500" : "blackAlpha.700"}
               backdropFilter="blur(8px)"
               border="1px solid"
-              borderColor="whiteAlpha.200"
-              color="gray.300"
+              borderColor={activeVibes.length === 0 ? "brand.500" : "whiteAlpha.200"}
+              color={activeVibes.length === 0 ? "white" : "gray.300"}
               size="sm"
               px={3}
               py={1}
-              gap={1}
-              fontWeight="medium"
+              fontWeight="semibold"
               fontSize="xs"
-              _hover={{ borderColor: "brand.500", color: "white" }}
+              flexShrink={0}
+              _hover={{ bg: "brand.400" }}
               transition="all 0.15s"
+              onClick={() => setActiveVibes([])}
             >
-              <MusicIcon />
-              <TagLabel>Música ao vivo</TagLabel>
+              <TagLabel>Todos</TagLabel>
             </Tag>
-
-            {/* Live event count badge */}
+            {VIBE_CHIPS.map(({ value, label }) => {
+              const active = activeVibes.includes(value);
+              return (
+                <Tag
+                  key={value}
+                  as="button"
+                  borderRadius="full"
+                  bg={active ? "brand.500" : "blackAlpha.700"}
+                  backdropFilter="blur(8px)"
+                  border="1px solid"
+                  borderColor={active ? "brand.500" : "whiteAlpha.200"}
+                  color={active ? "white" : "gray.300"}
+                  size="sm"
+                  px={3}
+                  py={1}
+                  fontWeight="medium"
+                  fontSize="xs"
+                  flexShrink={0}
+                  _hover={{ borderColor: "brand.500", color: "white" }}
+                  transition="all 0.15s"
+                  onClick={() =>
+                    setActiveVibes((prev) =>
+                      prev.includes(value) ? prev.filter((v) => v !== value) : [...prev, value],
+                    )
+                  }
+                >
+                  <TagLabel>{label}</TagLabel>
+                </Tag>
+              );
+            })}
             {events.length > 0 && (
               <Tag
                 borderRadius="full"
@@ -194,6 +188,7 @@ export default function HomeMapPage() {
                 px={3}
                 py={1}
                 fontSize="xs"
+                flexShrink={0}
               >
                 <TagLabel>{events.length} rolê{events.length !== 1 ? "s" : ""}</TagLabel>
               </Tag>

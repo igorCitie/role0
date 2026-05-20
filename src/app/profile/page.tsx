@@ -12,15 +12,25 @@ import {
   Flex,
   Heading,
   HStack,
+  Input,
+  Modal,
+  ModalBody,
+  ModalCloseButton,
+  ModalContent,
+  ModalFooter,
+  ModalHeader,
+  ModalOverlay,
   Skeleton,
   SkeletonCircle,
   Stack,
   Tag,
   Text,
+  useDisclosure,
 } from "@chakra-ui/react";
 import AuthGuard from "@/components/auth/AuthGuard";
 import BottomNav from "@/components/layout/BottomNav";
-import { getMyProfile, type UserProfile } from "@/lib/api/users";
+import { getMyProfile, updateProfile, validateBiometrics, type UserProfile } from "@/lib/api/users";
+import { logout } from "@/lib/api/auth";
 
 function BackIcon() {
   return (
@@ -49,6 +59,25 @@ function LogoutIcon() {
   );
 }
 
+function EditIcon() {
+  return (
+    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+      <path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 1-2-2v-7" />
+      <path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z" />
+    </svg>
+  );
+}
+
+const PROFILE_VIBES: { value: string; label: string }[] = [
+  { value: "CRAFT_BEER",  label: "🍺 Craft Beer"  },
+  { value: "BOARD_GAMES", label: "🎲 Board Games" },
+  { value: "INDIE_MUSIC", label: "🎸 Indie Music" },
+  { value: "TECH_TALKS",  label: "💻 Tech Talks"  },
+  { value: "SPORTS",      label: "⚽ Esportes"    },
+  { value: "CAFE",        label: "☕ Café"         },
+  { value: "NATURE",      label: "🌿 Natureza"    },
+];
+
 function TrustScoreBar({ score }: { score: number }) {
   const pct = Math.min(Math.max(score, 0), 100);
   const color = pct >= 75 ? "green.400" : pct >= 40 ? "brand.400" : "red.400";
@@ -71,8 +100,14 @@ function TrustScoreBar({ score }: { score: number }) {
 
 export default function ProfilePage() {
   const router = useRouter();
+  const { isOpen: isEditOpen, onOpen: openEdit, onClose: closeEdit } = useDisclosure();
   const [profile, setProfile] = useState<UserProfile | null>(null);
   const [error, setError] = useState<string | null>(null);
+  const [biometricsLoading, setBiometricsLoading] = useState(false);
+  const [editLoading, setEditLoading] = useState(false);
+  const [editName, setEditName] = useState("");
+  const [editVibes, setEditVibes] = useState<string[]>([]);
+  const [editError, setEditError] = useState<string | null>(null);
 
   useEffect(() => {
     const token = localStorage.getItem("token") ?? "";
@@ -81,9 +116,48 @@ export default function ProfilePage() {
       .catch((err) => setError(err instanceof Error ? err.message : "Erro ao carregar perfil."));
   }, []);
 
-  function handleLogout() {
+  async function handleLogout() {
+    const token = localStorage.getItem("token") ?? "";
     localStorage.removeItem("token");
+    try { await logout(token); } catch { /* proceed even if server unreachable */ }
     router.replace("/login");
+  }
+
+  async function handleValidateBiometrics() {
+    const token = localStorage.getItem("token") ?? "";
+    setBiometricsLoading(true);
+    try {
+      await validateBiometrics(token);
+      setProfile((p) => (p ? { ...p, biometriaValidada: true } : p));
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Erro ao validar biometria.");
+    } finally {
+      setBiometricsLoading(false);
+    }
+  }
+
+  function openEditModal() {
+    if (!profile) return;
+    setEditName(profile.nome);
+    setEditVibes(profile.vibes ?? []);
+    setEditError(null);
+    openEdit();
+  }
+
+  async function handleSaveProfile() {
+    if (!editName.trim()) { setEditError("Nome não pode ser vazio."); return; }
+    const token = localStorage.getItem("token") ?? "";
+    setEditLoading(true);
+    setEditError(null);
+    try {
+      await updateProfile({ nomeDisplay: editName.trim(), vibeTags: editVibes }, token);
+      setProfile((p) => p ? { ...p, nome: editName.trim(), vibes: editVibes } : p);
+      closeEdit();
+    } catch (err) {
+      setEditError(err instanceof Error ? err.message : "Erro ao salvar perfil.");
+    } finally {
+      setEditLoading(false);
+    }
   }
 
   const loading = !profile && !error;
@@ -117,16 +191,30 @@ export default function ProfilePage() {
               <BackIcon />
             </Box>
             <Heading size="sm" color="white">Perfil</Heading>
-            <Button
-              size="xs"
-              variant="ghost"
-              color="gray.500"
-              leftIcon={<LogoutIcon />}
-              onClick={handleLogout}
-              _hover={{ color: "red.400" }}
-            >
-              Sair
-            </Button>
+            <HStack spacing={1}>
+              {profile && (
+                <Button
+                  size="xs"
+                  variant="ghost"
+                  color="gray.500"
+                  leftIcon={<EditIcon />}
+                  onClick={openEditModal}
+                  _hover={{ color: "brand.400" }}
+                >
+                  Editar
+                </Button>
+              )}
+              <Button
+                size="xs"
+                variant="ghost"
+                color="gray.500"
+                leftIcon={<LogoutIcon />}
+                onClick={handleLogout}
+                _hover={{ color: "red.400" }}
+              >
+                Sair
+              </Button>
+            </HStack>
           </Flex>
 
           <Stack spacing={6} px={4} pt={6}>
@@ -239,6 +327,18 @@ export default function ProfilePage() {
                     <ShieldIcon validated={profile.biometriaValidada} />
                     {profile.biometriaValidada ? "Biometria validada" : "Biometria pendente"}
                   </Badge>
+                  {!profile.biometriaValidada && (
+                    <Button
+                      size="xs"
+                      colorScheme="green"
+                      variant="outline"
+                      borderRadius="full"
+                      isLoading={biometricsLoading}
+                      onClick={handleValidateBiometrics}
+                    >
+                      Validar
+                    </Button>
+                  )}
                 </HStack>
               </Box>
             )}
@@ -246,6 +346,81 @@ export default function ProfilePage() {
         </Container>
 
         <BottomNav />
+
+        {/* Edit profile modal */}
+        <Modal isOpen={isEditOpen} onClose={closeEdit} isCentered size="sm">
+          <ModalOverlay backdropFilter="blur(4px)" bg="blackAlpha.700" />
+          <ModalContent bg="surface.card" border="1px solid" borderColor="whiteAlpha.100" borderRadius="2xl" mx={4}>
+            <ModalHeader color="white" fontSize="md">Editar Perfil</ModalHeader>
+            <ModalCloseButton color="gray.400" />
+            <ModalBody>
+              <Stack spacing={5}>
+                <Box>
+                  <Text fontSize="xs" color="gray.500" textTransform="uppercase" letterSpacing="wider" mb={2}>
+                    Nome de exibição
+                  </Text>
+                  <Input
+                    value={editName}
+                    onChange={(e) => setEditName(e.target.value)}
+                    bg="surface.input"
+                    border="1px solid"
+                    borderColor="whiteAlpha.100"
+                    borderRadius="xl"
+                    color="gray.100"
+                    _focus={{ borderColor: "brand.500", boxShadow: "none" }}
+                    _placeholder={{ color: "gray.600" }}
+                    placeholder="Seu nome..."
+                  />
+                </Box>
+                <Box>
+                  <Text fontSize="xs" color="gray.500" textTransform="uppercase" letterSpacing="wider" mb={2}>
+                    Vibes
+                  </Text>
+                  <Flex gap={2} flexWrap="wrap">
+                    {PROFILE_VIBES.map(({ value, label }) => {
+                      const active = editVibes.includes(value);
+                      return (
+                        <Tag
+                          key={value}
+                          as="button"
+                          borderRadius="full"
+                          bg={active ? "brand.500" : "surface.input"}
+                          border="1px solid"
+                          borderColor={active ? "brand.500" : "whiteAlpha.100"}
+                          color={active ? "white" : "gray.400"}
+                          fontSize="xs"
+                          px={3}
+                          py={1}
+                          cursor="pointer"
+                          transition="all 0.15s"
+                          _hover={{ borderColor: "brand.500", color: "white" }}
+                          onClick={() =>
+                            setEditVibes((prev) =>
+                              prev.includes(value)
+                                ? prev.filter((v) => v !== value)
+                                : [...prev, value],
+                            )
+                          }
+                        >
+                          {label}
+                        </Tag>
+                      );
+                    })}
+                  </Flex>
+                </Box>
+                {editError && (
+                  <Text color="red.400" fontSize="xs">{editError}</Text>
+                )}
+              </Stack>
+            </ModalBody>
+            <ModalFooter gap={2}>
+              <Button variant="ghost" color="gray.400" onClick={closeEdit} size="sm">Cancelar</Button>
+              <Button size="sm" borderRadius="lg" isLoading={editLoading} onClick={handleSaveProfile}>
+                Salvar
+              </Button>
+            </ModalFooter>
+          </ModalContent>
+        </Modal>
       </Box>
     </AuthGuard>
   );

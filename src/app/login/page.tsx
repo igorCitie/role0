@@ -14,26 +14,38 @@ import {
   Input,
   Stack,
   Text,
+  useToast,
 } from "@chakra-ui/react";
 import { login } from "@/lib/api/auth";
+import { getMyProfile } from "@/lib/api/users";
 
 export default function LoginPage() {
   const router = useRouter();
+  const toast = useToast();
   const [email, setEmail] = useState("");
   const [senha, setSenha] = useState("");
-  const [error, setError] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
-    setError(null);
     setLoading(true);
     try {
       const { token } = await login({ email, senha });
       localStorage.setItem("token", token);
+      try {
+        const profile = await getMyProfile(token);
+        localStorage.setItem("userId", profile.id);
+      } catch { /* non-critical */ }
+      toast({ title: "Login realizado!", status: "success", duration: 2000, isClosable: true });
       router.push("/home");
     } catch (err) {
-      setError(err instanceof Error ? err.message : "Erro ao fazer login.");
+      toast({
+        title: "Falha no login",
+        description: err instanceof Error ? err.message : "Verifique suas credenciais.",
+        status: "error",
+        duration: 4000,
+        isClosable: true,
+      });
     } finally {
       setLoading(false);
     }
@@ -164,20 +176,6 @@ export default function LoginPage() {
                   transition="all 0.2s"
                 />
               </FormControl>
-
-              {error && (
-                <Box
-                  bg="rgba(224,56,0,0.1)"
-                  border="1px solid rgba(224,56,0,0.3)"
-                  borderRadius="10px"
-                  px={4}
-                  py={3}
-                >
-                  <Text color="#e03800" fontSize="sm" fontWeight="500">
-                    {error}
-                  </Text>
-                </Box>
-              )}
 
               <Button
                 type="submit"

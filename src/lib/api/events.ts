@@ -11,6 +11,13 @@ export interface CreateEventRequest {
   vibeTags: VibeTag[];
 }
 
+export type EventStatus =
+  | "CRIADO"
+  | "ABERTO_PARA_VAGAS"
+  | "FECHADO_PREGAME"
+  | "EM_ANDAMENTO"
+  | "EXPIRADO";
+
 export interface NearbyEvent {
   id: string;
   titulo: string;
@@ -18,24 +25,26 @@ export interface NearbyEvent {
   trustScoreHost: number;
   vagasRestantes: number;
   ocupacao: string;
-  status: string;
+  status: EventStatus;
   horarioInicio: string;
   distanciaEmMetros: number;
   enderecoLegivel: string;
-  latitude: number;
-  longitude: number;
+  /** Coordinates are not in the official Swagger schema — guard before use */
+  latitude?: number;
+  longitude?: number;
 }
 
 export interface EventDetail {
   id: string;
   titulo: string;
   descricao: string;
-  status: string;
+  status: EventStatus;
   capacidadeMaxima: number;
   totalAprovados: number;
   inicioEm: string;
   enderecoLegivel: string;
-  isParticipant: boolean;
+  /** Not in the official Swagger schema — treat as optional */
+  isParticipant?: boolean;
   host: {
     id: string;
     nomeDisplay: string;
@@ -70,7 +79,7 @@ export async function getNearbyEvents(
     longitude: String(longitude),
     raioKm: String(raioKm),
   });
-  if (vibeTags?.length) params.set("vibeTags", vibeTags.join(","));
+  if (vibeTags?.length) vibeTags.forEach((v) => params.append("vibeTags", v));
   return apiFetch<NearbyEvent[]>(`/api/v1/events/nearby?${params}`);
 }
 
@@ -177,6 +186,29 @@ export async function listParticipants(
   token: string,
 ): Promise<Participant[]> {
   return apiFetch<Participant[]>(`/api/v1/events/${eventId}/participants`, {
+    headers: { Authorization: `Bearer ${token}` },
+  });
+}
+
+export interface MyEvent {
+  id: string;
+  titulo: string;
+  horarioInicio: string;
+  status: EventStatus;
+  isHost: boolean;
+}
+
+/** List all events the authenticated user is hosting or attending */
+export async function getMyEvents(token: string): Promise<MyEvent[]> {
+  return apiFetch<MyEvent[]>("/api/v1/events/my", {
+    headers: { Authorization: `Bearer ${token}` },
+  });
+}
+
+/** Trigger SOS / panic mode for an event (server always returns 202) */
+export async function triggerPanic(eventId: string, token: string): Promise<void> {
+  await apiFetch<unknown>(`/api/v1/events/${eventId}/panic`, {
+    method: "POST",
     headers: { Authorization: `Bearer ${token}` },
   });
 }

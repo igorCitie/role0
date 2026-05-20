@@ -106,12 +106,18 @@ export default function CreateEventPage() {
     });
   }
 
-  // Wait for the globally loaded Google Maps script (layout.tsx)
+  // Wait for both the globally loaded Google Maps script (layout.tsx)
+  // AND the map container to be in the DOM (AuthGuard delays rendering)
   useEffect(() => {
-    if (typeof google !== "undefined") { initMap(); return; }
-    const id = setInterval(() => {
-      if (typeof google !== "undefined") { clearInterval(id); initMap(); }
-    }, 100);
+    const tryInit = () => {
+      if (mapContainerRef.current && typeof google !== "undefined" && !gMapRef.current) {
+        initMap();
+        return true;
+      }
+      return false;
+    };
+    if (tryInit()) return;
+    const id = setInterval(() => { if (tryInit()) clearInterval(id); }, 100);
     return () => clearInterval(id);
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);

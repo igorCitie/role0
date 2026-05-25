@@ -453,9 +453,9 @@ export default function CreateEventPage() {
 
   // Date/Time picker state
   const [availableDays] = useState(generateDays());
-  const [selectedDate, setSelectedDate] = useState<Date | null>(null);
-  const [selectedHour, setSelectedHour] = useState<string | null>(null);
-  const [selectedMinute, setSelectedMinute] = useState<string | null>(null);
+  const [selectedDate, setSelectedDate] = useState<Date | null>(availableDays[0]?.date || null);
+  const [selectedHour, setSelectedHour] = useState<string | null>("20"); // Default to 8 PM (20:00) for standard event planning
+  const [selectedMinute, setSelectedMinute] = useState<string | null>("00"); // Default to 00 minutes
 
   // Focus tracking
   const [titleFocused, setTitleFocused] = useState(false);
@@ -469,10 +469,10 @@ export default function CreateEventPage() {
   // Computed Date
   let finalHorario = "";
   if (selectedDate && selectedHour && selectedMinute) {
-    const d = new Date(selectedDate);
-    d.setHours(parseInt(selectedHour, 10));
-    d.setMinutes(parseInt(selectedMinute, 10));
-    finalHorario = d.toISOString().replace("Z", "");
+    const year = selectedDate.getFullYear();
+    const month = String(selectedDate.getMonth() + 1).padStart(2, "0");
+    const day = String(selectedDate.getDate()).padStart(2, "0");
+    finalHorario = `${year}-${month}-${day}T${selectedHour}:${selectedMinute}:00`;
   }
 
   const displayDateStr = finalHorario

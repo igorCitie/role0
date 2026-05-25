@@ -20,7 +20,24 @@ export async function apiFetch<T>(
     },
   });
   if (!res.ok) {
-    throw new Error(`API ${res.status}: ${res.statusText}`);
+    if (res.status === 401 && typeof window !== "undefined") {
+      localStorage.removeItem("token");
+      localStorage.removeItem("userId");
+      if (!window.location.pathname.startsWith("/login") && !window.location.pathname.startsWith("/register")) {
+        window.location.href = "/login";
+      }
+    }
+
+    let errorMessage = `API ${res.status}: ${res.statusText}`;
+    try {
+      const errorData = await res.json();
+      if (errorData?.message) {
+        errorMessage = errorData.message;
+      }
+    } catch {
+      // Falldown para texto genérico se a resposta não for JSON
+    }
+    throw new Error(errorMessage);
   }
   const text = await res.text();
   return (text ? JSON.parse(text) : undefined) as T;

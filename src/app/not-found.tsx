@@ -3,13 +3,13 @@ import { Box, Button, Container, Heading, Text } from "@chakra-ui/react";
 
 export default function NotFound() {
   return (
-    <Box minH="100vh" display="flex" alignItems="center" justifyContent="center" p={8}>
+    <Box minH="100dvh" bg="surface.bg" display="flex" alignItems="center" justifyContent="center" p={8}>
       <Container textAlign="center">
-        <Heading mb={4}>Página não encontrada</Heading>
+        <Heading mb={4} color="white">Página não encontrada</Heading>
         <Text color="gray.400" mb={6}>
           O endereço não existe ou foi movido.
         </Text>
-        <Button as={NextLink} href="/" colorScheme="brand">
+        <Button as={NextLink} href="/" colorScheme="brand" borderRadius="button">
           Voltar ao início
         </Button>
       </Container>

@@ -40,7 +40,7 @@ export default function RegisterPage() {
       router.push("/home");
     } catch (err) {
       if (err instanceof Error && err.message.startsWith("API 409")) {
-        setError("Este e-mail já está cadastrado.");
+        setError("Este e-mail ja esta cadastrado.");
       } else {
         setError(err instanceof Error ? err.message : "Erro ao criar conta.");
       }
@@ -51,8 +51,8 @@ export default function RegisterPage() {
 
   return (
     <Box
-      minH="100vh"
-      bg="#0B0B0F"
+      minH="100dvh"
+      bg="surface.bg"
       display="flex"
       flexDirection="column"
       alignItems="center"
@@ -61,7 +61,7 @@ export default function RegisterPage() {
       position="relative"
       overflow="hidden"
     >
-      {/* Background ambient glows */}
+      {/* Background ambient glows — brand orange only */}
       <Box
         position="absolute"
         top="-100px"
@@ -69,7 +69,7 @@ export default function RegisterPage() {
         w="400px"
         h="400px"
         borderRadius="full"
-        bg="radial-gradient(circle, rgba(56,0,224,0.15) 0%, transparent 70%)"
+        bg="radial-gradient(circle, rgba(224,56,0,0.12) 0%, transparent 70%)"
         pointerEvents="none"
       />
       <Box
@@ -79,7 +79,7 @@ export default function RegisterPage() {
         w="360px"
         h="360px"
         borderRadius="full"
-        bg="radial-gradient(circle, rgba(0,224,56,0.08) 0%, transparent 70%)"
+        bg="radial-gradient(circle, rgba(224,56,0,0.06) 0%, transparent 70%)"
         pointerEvents="none"
       />
 
@@ -95,40 +95,33 @@ export default function RegisterPage() {
             lineHeight={1}
           >
             Role
-            <Box
-              as="span"
-              bgGradient="linear(135deg, #3800e0, #e03800)"
-              bgClip="text"
-              style={{ WebkitBackgroundClip: "text", WebkitTextFillColor: "transparent" }}
-            >
-              0
-            </Box>
+            <Box as="span" color="brand.500">0</Box>
           </Heading>
           <Text fontSize="sm" color="gray.500" letterSpacing="0.04em">
-            Sua conta, seus rolês.
+            Sua conta, seus roles.
           </Text>
         </Stack>
 
         {/* Card */}
         <Box
-          borderRadius="24px"
+          borderRadius="card"
           p="1px"
-          bg="linear-gradient(135deg, rgba(0,224,56,0.3) 0%, rgba(255,255,255,0.06) 50%, rgba(56,0,224,0.4) 100%)"
-          boxShadow="0 24px 64px rgba(56,0,224,0.12), 0 4px 24px rgba(0,0,0,0.4)"
+          bg="linear-gradient(135deg, rgba(224,56,0,0.4) 0%, rgba(255,255,255,0.06) 50%, rgba(224,56,0,0.2) 100%)"
+          boxShadow="0 24px 64px rgba(224,56,0,0.08), 0 4px 24px rgba(0,0,0,0.4)"
         >
           <Box
-            bg="rgba(18,18,26,0.95)"
-            borderRadius="23px"
+            bg="surface.cardTranslucent"
+            borderRadius="19px"
             p={8}
             backdropFilter="blur(20px)"
           >
             <Stack spacing={5} as="form" onSubmit={handleSubmit}>
               <Stack spacing={1} mb={1}>
-                <Heading size="lg" color="white" fontWeight="800" letterSpacing="-0.5px">
+                <Heading size="lg" fontWeight="800" letterSpacing="-0.5px">
                   Criar conta
                 </Heading>
                 <Text fontSize="sm" color="gray.500">
-                  Comece a descobrir os melhores rolês
+                  Comece a descobrir os melhores roles
                 </Text>
               </Stack>
 
@@ -138,17 +131,19 @@ export default function RegisterPage() {
                 </FormLabel>
                 <Input
                   type="text"
-                  placeholder="João das Neves"
+                  autoComplete="name"
+                  placeholder="Joao das Neves"
                   value={nome}
                   onChange={(e) => setNome(e.target.value)}
                   size="lg"
-                  borderRadius="12px"
+                  fontSize="16px"
+                  borderRadius="input"
                   bg="rgba(255,255,255,0.04)"
                   border="1px solid rgba(255,255,255,0.08)"
                   color="white"
-                  _placeholder={{ color: "gray.600" }}
-                  _hover={{ border: "1px solid rgba(56,0,224,0.4)", bg: "rgba(255,255,255,0.06)" }}
-                  _focus={{ border: "1px solid #3800e0", bg: "rgba(56,0,224,0.08)", boxShadow: "0 0 0 3px rgba(56,0,224,0.15)", outline: "none" }}
+                  _placeholder={{ color: "gray.500" }}
+                  _hover={{ border: "1px solid rgba(224,56,0,0.3)", bg: "rgba(255,255,255,0.06)" }}
+                  _focus={{ border: "1px solid", borderColor: "brand.500", bg: "rgba(224,56,0,0.04)", boxShadow: "0 0 0 3px rgba(224,56,0,0.12)", outline: "none" }}
                   transition="all 0.2s"
                 />
               </FormControl>
@@ -159,17 +154,20 @@ export default function RegisterPage() {
                 </FormLabel>
                 <Input
                   type="email"
+                  inputMode="email"
+                  autoComplete="email"
                   placeholder="voce@email.com"
                   value={email}
                   onChange={(e) => setEmail(e.target.value)}
                   size="lg"
-                  borderRadius="12px"
+                  fontSize="16px"
+                  borderRadius="input"
                   bg="rgba(255,255,255,0.04)"
                   border="1px solid rgba(255,255,255,0.08)"
                   color="white"
-                  _placeholder={{ color: "gray.600" }}
-                  _hover={{ border: "1px solid rgba(56,0,224,0.4)", bg: "rgba(255,255,255,0.06)" }}
-                  _focus={{ border: "1px solid #3800e0", bg: "rgba(56,0,224,0.08)", boxShadow: "0 0 0 3px rgba(56,0,224,0.15)", outline: "none" }}
+                  _placeholder={{ color: "gray.500" }}
+                  _hover={{ border: "1px solid rgba(224,56,0,0.3)", bg: "rgba(255,255,255,0.06)" }}
+                  _focus={{ border: "1px solid", borderColor: "brand.500", bg: "rgba(224,56,0,0.04)", boxShadow: "0 0 0 3px rgba(224,56,0,0.12)", outline: "none" }}
                   transition="all 0.2s"
                 />
               </FormControl>
@@ -180,17 +178,19 @@ export default function RegisterPage() {
                 </FormLabel>
                 <Input
                   type="password"
+                  autoComplete="new-password"
                   placeholder="••••••••"
                   value={senha}
                   onChange={(e) => setSenha(e.target.value)}
                   size="lg"
-                  borderRadius="12px"
+                  fontSize="16px"
+                  borderRadius="input"
                   bg="rgba(255,255,255,0.04)"
                   border="1px solid rgba(255,255,255,0.08)"
                   color="white"
-                  _placeholder={{ color: "gray.600" }}
-                  _hover={{ border: "1px solid rgba(56,0,224,0.4)", bg: "rgba(255,255,255,0.06)" }}
-                  _focus={{ border: "1px solid #3800e0", bg: "rgba(56,0,224,0.08)", boxShadow: "0 0 0 3px rgba(56,0,224,0.15)", outline: "none" }}
+                  _placeholder={{ color: "gray.500" }}
+                  _hover={{ border: "1px solid rgba(224,56,0,0.3)", bg: "rgba(255,255,255,0.06)" }}
+                  _focus={{ border: "1px solid", borderColor: "brand.500", bg: "rgba(224,56,0,0.04)", boxShadow: "0 0 0 3px rgba(224,56,0,0.12)", outline: "none" }}
                   transition="all 0.2s"
                 />
               </FormControl>
@@ -203,7 +203,7 @@ export default function RegisterPage() {
                   px={4}
                   py={3}
                 >
-                  <Text color="#e03800" fontSize="sm" fontWeight="500">
+                  <Text color="brand.400" fontSize="sm" fontWeight="500">
                     {error}
                   </Text>
                 </Box>
@@ -212,32 +212,32 @@ export default function RegisterPage() {
               <Button
                 type="submit"
                 size="lg"
-                borderRadius="12px"
+                borderRadius="button"
                 isLoading={loading}
                 fontWeight="700"
                 fontSize="md"
-                bg="linear-gradient(135deg, #e03400 0%, #5c1aff 100%)"
+                bg="brand.500"
                 color="white"
                 border="none"
                 _hover={{
-                  bg: "linear-gradient(135deg, #f07510 0%, #6e2aff 100%)",
+                  bg: "brand.400",
                   transform: "translateY(-1px)",
-                  boxShadow: "0 8px 32px rgba(56,0,224,0.45)",
+                  boxShadow: "0 8px 32px rgba(224,56,0,0.35)",
                 }}
-                _active={{ transform: "translateY(0)", boxShadow: "0 4px 16px rgba(56,0,224,0.35)" }}
-                boxShadow="0 4px 20px rgba(56,0,224,0.3)"
+                _active={{ transform: "translateY(0)", boxShadow: "0 4px 16px rgba(224,56,0,0.25)" }}
+                boxShadow="0 4px 20px rgba(224,56,0,0.2)"
                 transition="all 0.2s"
                 h="52px"
                 mt={1}
               >
-                Criar conta →
+                Criar conta
               </Button>
 
-              {/* Success hint */}
+              {/* Verification hint */}
               <HStack justify="center" spacing={2} pt={1}>
-                <Box w="6px" h="6px" borderRadius="full" bg="#00e038" boxShadow="0 0 8px rgba(0,224,56,0.6)" />
-                <Text fontSize="xs" color="gray.600">
-                  Conta verificada imediatamente após o cadastro
+                <Box w="6px" h="6px" borderRadius="full" bg="green.400" boxShadow="0 0 8px rgba(72, 187, 120, 0.5)" />
+                <Text fontSize="xs" color="gray.500">
+                  Conta verificada imediatamente apos o cadastro
                 </Text>
               </HStack>
             </Stack>
@@ -247,7 +247,7 @@ export default function RegisterPage() {
         {/* Footer */}
         <HStack justify="center" mt={6} spacing={1}>
           <Text fontSize="sm" color="gray.500">
-            Já tem uma conta?
+            Ja tem uma conta?
           </Text>
           <Button
             as={NextLink}
@@ -255,8 +255,8 @@ export default function RegisterPage() {
             variant="link"
             fontSize="sm"
             fontWeight="700"
-            color="#3800e0"
-            _hover={{ color: "#5c1aff", textDecoration: "none" }}
+            color="brand.400"
+            _hover={{ color: "brand.300", textDecoration: "none" }}
           >
             Entrar
           </Button>
@@ -271,7 +271,7 @@ export default function RegisterPage() {
             color="gray.600"
             _hover={{ color: "gray.400" }}
           >
-            Voltar ao início
+            Voltar ao inicio
           </Button>
         </HStack>
       </Container>

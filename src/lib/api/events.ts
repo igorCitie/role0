@@ -15,8 +15,8 @@ export type EventStatus =
   | "CRIADO"
   | "ABERTO_PARA_VAGAS"
   | "FECHADO_PREGAME"
-  | "EM_ANDAMENTO"
-  | "EXPIRADO";
+  | "EXPIRADO"
+  | "CANCELADO";
 
 export interface NearbyEvent {
   id: string;
@@ -73,6 +73,7 @@ export async function getNearbyEvents(
   longitude: number,
   raioKm = 10,
   vibeTags?: VibeTag[],
+  token?: string,
 ): Promise<NearbyEvent[]> {
   const params = new URLSearchParams({
     latitude: String(latitude),
@@ -80,7 +81,9 @@ export async function getNearbyEvents(
     raioKm: String(raioKm),
   });
   if (vibeTags?.length) vibeTags.forEach((v) => params.append("vibeTags", v));
-  return apiFetch<NearbyEvent[]>(`/api/v1/events/nearby?${params}`);
+  return apiFetch<NearbyEvent[]>(`/api/v1/events/nearby?${params}`, {
+    headers: token ? { Authorization: `Bearer ${token}` } : {},
+  });
 }
 
 export async function getEventDetail(
@@ -209,6 +212,38 @@ export async function getMyEvents(token: string): Promise<MyEvent[]> {
 export async function triggerPanic(eventId: string, token: string): Promise<void> {
   await apiFetch<unknown>(`/api/v1/events/${eventId}/panic`, {
     method: "POST",
+    headers: { Authorization: `Bearer ${token}` },
+  });
+}
+
+export interface ChatMessage {
+  id: string;
+  senderId: string;
+  senderNome: string;
+  conteudo: string;
+  timestampEnvio: string;
+  tipo: string;
+}
+
+export async function getChatHistory(
+  eventId: string,
+  token: string,
+  limit = 50,
+): Promise<ChatMessage[]> {
+  return apiFetch<ChatMessage[]>(
+    `/api/v1/events/${eventId}/chat/history?limit=${limit}`,
+    { headers: { Authorization: `Bearer ${token}` } },
+  );
+}
+
+export async function sendChatMessage(
+  eventId: string,
+  conteudo: string,
+  token: string,
+): Promise<void> {
+  await apiFetch<unknown>(`/api/v1/events/${eventId}/chat`, {
+    method: "POST",
+    body: JSON.stringify({ conteudo }),
     headers: { Authorization: `Bearer ${token}` },
   });
 }

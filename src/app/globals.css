@@ -1,9 +1,65 @@
+@layer base {
+  * {
+    -webkit-tap-highlight-color: transparent;
+  }
+
+  html {
+    overscroll-behavior-y: none; /* Previne o 'pull-to-refresh' default que atrapalha PWAs no iOS */
+  }
+
+  body {
+    touch-action: manipulation; /* Remove delay de 300ms nos botões do Safari */
+  }
+}
+
 html,
-body {
+body,
+:root {
   max-width: 100vw;
-  min-height: 100vh;
+  overflow-x: hidden;
+  /* Use 100dvh para lidar com o navegador mobile escondendo a barra de endereço */
+  min-height: 100dvh;
+  margin: 0;
+  padding: 0;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+  text-rendering: optimizeLegibility;
 }
 
 * {
   box-sizing: border-box;
+}
+
+/* Dark mode scrollbar */
+::-webkit-scrollbar {
+  width: 6px;
+  height: 6px;
+}
+
+::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+::-webkit-scrollbar-thumb {
+  background: rgba(255, 255, 255, 0.08);
+  border-radius: 3px;
+}
+
+::-webkit-scrollbar-thumb:hover {
+  background: rgba(255, 255, 255, 0.14);
+}
+
+/* Firefox scrollbar */
+* {
+  scrollbar-width: thin;
+  scrollbar-color: rgba(255, 255, 255, 0.08) transparent;
+}
+
+/* Prevent iOS auto-zoom on inputs */
+@supports (-webkit-touch-callout: none) {
+  input,
+  textarea,
+  select {
+    font-size: 16px !important;
+  }
 }

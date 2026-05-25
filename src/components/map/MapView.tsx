@@ -124,23 +124,28 @@ export default function MapView({ events = [], userPosition, onEventClick }: Map
     heatmapRef.current?.setMap(null);
 
     // Heatmap — weight by inverse of remaining vacancies (fuller = hotter)
-    if (positioned.length > 0 && google.maps.visualization) {
-      const heatData = positioned.map((ev) => ({
-        location: new google.maps.LatLng(ev.lat, ev.lng),
-        weight: Math.max(1, 10 - ev.vagasRestantes),
-      }));
-      heatmapRef.current = new google.maps.visualization.HeatmapLayer({
-        data: heatData,
-        map,
-        radius: 60,
-        opacity: 0.55,
-        gradient: [
-          "rgba(0,0,0,0)",
-          "rgba(224,56,0,0.4)",
-          "rgba(224,56,0,0.7)",
-          "rgba(224,56,0,1)",
-        ],
-      });
+    // Safely check if HeatmapLayer is available, as it is deprecated in Maps JS API v3.65+
+    if (positioned.length > 0 && typeof google.maps.visualization?.HeatmapLayer === "function") {
+      try {
+        const heatData = positioned.map((ev) => ({
+          location: new google.maps.LatLng(ev.lat, ev.lng),
+          weight: Math.max(1, 10 - ev.vagasRestantes),
+        }));
+        heatmapRef.current = new google.maps.visualization.HeatmapLayer({
+          data: heatData,
+          map,
+          radius: 60,
+          opacity: 0.55,
+          gradient: [
+            "rgba(0,0,0,0)",
+            "rgba(224,56,0,0.4)",
+            "rgba(224,56,0,0.7)",
+            "rgba(224,56,0,1)",
+          ],
+        });
+      } catch (err) {
+        console.error("Failed to initialize HeatmapLayer:", err);
+      }
     }
 
     // Event pin markers

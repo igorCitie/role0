@@ -27,46 +27,42 @@ import {
   Textarea,
   useDisclosure,
   useToast,
+  IconButton,
 } from "@chakra-ui/react";
 import AuthGuard from "@/components/auth/AuthGuard";
 import BottomNav from "@/components/layout/BottomNav";
 import { getPublicProfile, getUserReviews, submitReview, type AvaliacaoResponse, type PublicUserProfile } from "@/lib/api/users";
+import { TrustScoreBar } from "@/components/shared/TrustScoreBar";
+import {
+  BackIcon,
+  ShieldIcon,
+  BeerIcon,
+  DiceIcon,
+  GuitarIcon,
+  CodeIcon,
+  SportsIcon,
+  CoffeeIcon,
+  LeafIcon,
+  MicIcon,
+  HeadphonesIcon,
+  TheaterIcon,
+  PartyIcon,
+} from "@/components/icons";
 
-function TrustScoreBar({ score }: { score: number }) {
-  const pct = Math.min(Math.max(score, 0), 100);
-  const color = pct >= 75 ? "green.400" : pct >= 40 ? "brand.400" : "red.400";
-  return (
-    <Box>
-      <Flex justify="space-between" mb={1}>
-        <Text fontSize="xs" color="gray.500" textTransform="uppercase" letterSpacing="wider">
-          Trust Score
-        </Text>
-        <Text fontSize="xs" fontWeight="bold" color={color}>
-          {pct}
-        </Text>
-      </Flex>
-      <Box bg="surface.input" borderRadius="full" h="6px" overflow="hidden">
-        <Box bg={color} h="full" w={`${pct}%`} borderRadius="full" transition="width 0.6s ease" />
-      </Box>
-    </Box>
-  );
-}
+const PROFILE_VIBES: { value: string; label: string; icon: React.FC<any> }[] = [
+  { value: "CRAFT_BEER", label: "Cerveja Artesanal", icon: BeerIcon },
+  { value: "BOARD_GAMES", label: "Jogos de Tabuleiro", icon: DiceIcon },
+  { value: "INDIE_MUSIC", label: "Indie Music", icon: GuitarIcon },
+  { value: "CAFE", label: "Cafés e Encontros", icon: CoffeeIcon },
+  { value: "NATURE", label: "Natureza & Trilhas", icon: LeafIcon },
+  { value: "TECH_TALKS", label: "Tech Talks", icon: CodeIcon },
+  { value: "SPORTS", label: "Esportes e Lazer", icon: SportsIcon },
+];
 
-function BackIcon() {
-  return (
-    <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
-      <path d="M19 12H5M12 5l-7 7 7 7" />
-    </svg>
-  );
-}
-
-function ShieldIcon() {
-  return (
-    <svg width="13" height="13" viewBox="0 0 24 24" fill="currentColor" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-      <path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z" />
-      <polyline points="9 12 11 14 15 10" stroke="white" strokeWidth="2" fill="none" />
-    </svg>
-  );
+function getVibeDetails(value: string) {
+  const found = PROFILE_VIBES.find((v) => v.value === value);
+  if (found) return found;
+  return { value, label: value, icon: null };
 }
 
 function Stars({ nota, size = "sm" }: { nota: number; size?: "sm" | "lg" }) {
@@ -209,16 +205,19 @@ function PublicProfileContent() {
             borderBottom="1px solid"
             borderColor="whiteAlpha.100"
           >
-            <Box
-              as="button"
+            <IconButton
+              aria-label="Voltar"
+              icon={<BackIcon />}
+              variant="unstyled"
               onClick={() => router.back()}
               color="gray.400"
               _hover={{ color: "white" }}
-              transition="color 0.15s"
-              p={1}
-            >
-              <BackIcon />
-            </Box>
+              display="flex"
+              alignItems="center"
+              justifyContent="center"
+              minW="auto"
+              h="auto"
+            />
             <Heading size="md" color="gray.100">
               {profileLoading ? "Carregando…" : profile?.nomeDisplay ?? "Perfil"}
             </Heading>
@@ -259,7 +258,7 @@ function PublicProfileContent() {
                       borderColor="surface.bg"
                       color="white"
                     >
-                      <ShieldIcon />
+                      <ShieldIcon validated />
                     </Flex>
                   )}
                 </Box>
@@ -307,21 +306,28 @@ function PublicProfileContent() {
                   Vibes
                 </Text>
                 <Flex gap={2} flexWrap="wrap">
-                  {profile.vibes.map((v) => (
-                    <Tag
-                      key={v}
-                      borderRadius="full"
-                      bg="surface.input"
-                      border="1px solid"
-                      borderColor="whiteAlpha.100"
-                      color="gray.300"
-                      fontSize="xs"
-                      px={3}
-                      py={1}
-                    >
-                      {v.replace(/_/g, " ")}
-                    </Tag>
-                  ))}
+                  {profile.vibes.map((v) => {
+                    const details = getVibeDetails(v);
+                    const Icon = details.icon;
+                    return (
+                      <Tag
+                        key={v}
+                        borderRadius="full"
+                        bg="surface.input"
+                        border="1px solid"
+                        borderColor="whiteAlpha.100"
+                        color="gray.300"
+                        fontSize="xs"
+                        px={3}
+                        py={1.5}
+                      >
+                        <HStack spacing={1.5}>
+                          {Icon && <Icon size={14} />}
+                          <Text>{details.label}</Text>
+                        </HStack>
+                      </Tag>
+                    );
+                  })}
                 </Flex>
               </Box>
             )}

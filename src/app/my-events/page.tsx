@@ -32,6 +32,7 @@ import {
   Textarea,
   useDisclosure,
   useToast,
+  IconButton,
 } from "@chakra-ui/react";
 import AuthGuard from "@/components/auth/AuthGuard";
 import BottomNav from "@/components/layout/BottomNav";
@@ -44,51 +45,19 @@ import {
   type MyEvent,
   type EventStatus,
 } from "@/lib/api/events";
-
-function BackIcon() {
-  return (
-    <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
-      <path d="M19 12H5M12 5l-7 7 7 7" />
-    </svg>
-  );
-}
-
-function CalendarIcon() {
-  return (
-    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-      <rect x="3" y="4" width="18" height="18" rx="2" ry="2" />
-      <line x1="16" y1="2" x2="16" y2="6" />
-      <line x1="8" y1="2" x2="8" y2="6" />
-      <line x1="3" y1="10" x2="21" y2="10" />
-    </svg>
-  );
-}
-
-function PencilIcon() {
-  return (
-    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-      <path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7" />
-      <path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z" />
-    </svg>
-  );
-}
-
-function TrashIcon() {
-  return (
-    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-      <polyline points="3 6 5 6 21 6" />
-      <path d="M19 6l-1 14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6" />
-      <path d="M10 11v6M14 11v6" />
-      <path d="M9 6V4a1 1 0 0 1 1-1h4a1 1 0 0 1 1 1v2" />
-    </svg>
-  );
-}
+import {
+  BackIcon,
+  CalendarIcon,
+  PencilIcon,
+  TrashIcon,
+  TicketIcon,
+} from "@/components/icons";
 
 const STATUS_CONFIG: Record<EventStatus, { label: string; color: string; bg: string }> = {
   CRIADO:             { label: "Criado",        color: "gray.300",  bg: "whiteAlpha.100" },
   ABERTO_PARA_VAGAS:  { label: "Aberto",        color: "green.300", bg: "green.900"      },
   FECHADO_PREGAME:    { label: "Pré-game",      color: "yellow.300",bg: "yellow.900"     },
-  EM_ANDAMENTO:       { label: "Acontecendo 🔥", color: "brand.300", bg: "brand.900"      },
+  CANCELADO:          { label: "Cancelado",     color: "red.300",   bg: "red.900"        },
   EXPIRADO:           { label: "Encerrado",     color: "gray.500",  bg: "whiteAlpha.50"  },
 };
 
@@ -133,33 +102,41 @@ function EventCard({ event, onEdit, onDelete }: { event: MyEvent; onEdit?: () =>
         </Tag>
         <Flex align="center" gap={2}>
           {canEdit && (
-            <Box
-              as="button"
+            <IconButton
+              aria-label="Editar rolê"
+              icon={<PencilIcon />}
+              variant="unstyled"
+              size="xs"
               onClick={(e: React.MouseEvent) => { e.stopPropagation(); onEdit?.(); }}
               color="gray.500"
               _hover={{ color: "brand.400" }}
-              transition="color 0.15s"
-              p={1}
-            >
-              <PencilIcon />
-            </Box>
+              display="flex"
+              alignItems="center"
+              justifyContent="center"
+              minW="auto"
+              h="auto"
+            />
           )}
           {canEdit && (
-            <Box
-              as="button"
+            <IconButton
+              aria-label="Excluir rolê"
+              icon={<TrashIcon />}
+              variant="unstyled"
+              size="xs"
               onClick={(e: React.MouseEvent) => { e.stopPropagation(); onDelete?.(); }}
               color="gray.500"
               _hover={{ color: "red.400" }}
-              transition="color 0.15s"
-              p={1}
-            >
-              <TrashIcon />
-            </Box>
+              display="flex"
+              alignItems="center"
+              justifyContent="center"
+              minW="auto"
+              h="auto"
+            />
           )}
           <Tag
             size="sm"
-            bg={event.isHost ? "purple.900" : "blue.900"}
-            color={event.isHost ? "purple.200" : "blue.200"}
+            bg={event.isHost ? "brand.900" : "blue.900"}
+            color={event.isHost ? "brand.200" : "blue.200"}
             borderRadius="full"
             px={2}
             fontSize="10px"
@@ -175,8 +152,8 @@ function EventCard({ event, onEdit, onDelete }: { event: MyEvent; onEdit?: () =>
         {event.titulo}
       </Text>
 
-      <Flex align="center" gap={1} color="gray.500">
-        <CalendarIcon />
+      <Flex align="center" gap={1.5} color="gray.500">
+        <CalendarIcon size={12} />
         <Text fontSize="xs">{formatDate(event.horarioInicio)}</Text>
       </Flex>
     </Box>
@@ -187,7 +164,9 @@ function EmptyState() {
   const router = useRouter();
   return (
     <Flex direction="column" align="center" justify="center" py={16} gap={4}>
-      <Text fontSize="3xl">🎉</Text>
+      <Box color="gray.600">
+        <TicketIcon size={32} />
+      </Box>
       <Text color="gray.400" fontSize="sm" textAlign="center" px={6}>
         Você ainda não participou de nenhum rolê.{" "}
         <Text as="span" color="brand.400" cursor="pointer" onClick={() => router.push("/home")}>
@@ -206,7 +185,6 @@ export default function MyEventsPage() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
-  // Edit modal
   const { isOpen, onOpen, onClose } = useDisclosure();
   const editRef = useRef<HTMLInputElement>(null);
   const [editingId, setEditingId] = useState<string | null>(null);
@@ -216,7 +194,6 @@ export default function MyEventsPage() {
   const [editDetailLoading, setEditDetailLoading] = useState(false);
   const [editSubmitting, setEditSubmitting] = useState(false);
 
-  // Delete confirmation modal
   const { isOpen: isDeleteOpen, onOpen: onDeleteOpen, onClose: onDeleteClose } = useDisclosure();
   const [deletingId, setDeletingId] = useState<string | null>(null);
   const [deletingTitle, setDeletingTitle] = useState("");
@@ -244,7 +221,7 @@ export default function MyEventsPage() {
       const detail = await getEventDetail(event.id, token);
       setEditDescricao(detail.descricao ?? "");
       setEditCapacity(detail.capacidadeMaxima);
-    } catch { /* non-critical — user can still edit title */ }
+    } catch { /* non-critical */ }
     finally { setEditDetailLoading(false); }
   }
 
@@ -260,8 +237,7 @@ export default function MyEventsPage() {
     setEditSubmitting(true);
     try {
       await editEvent(editingId, payload, token);
-      toast({ title: "Rolê atualizado! ✅", status: "success", duration: 2500, isClosable: true });
-      // optimistically update the title in the list
+      toast({ title: "Rolê atualizado!", status: "success", duration: 2500, isClosable: true });
       setEvents((prev) => prev.map((e) => e.id === editingId ? { ...e, titulo: editTitulo } : e));
       onClose();
     } catch (err) {
@@ -300,8 +276,6 @@ export default function MyEventsPage() {
     <AuthGuard>
       <Box w="100%" h="100dvh" bg="surface.bg" display="flex" flexDirection="column" alignItems="center" position="relative" overflow="hidden">
         <Container maxW="390px" px={0} pb="80px" flex={1} overflowY="auto" w="100%">
-
-          {/* Header */}
           <Flex
             align="center"
             gap={3}
@@ -315,22 +289,24 @@ export default function MyEventsPage() {
             borderBottom="1px solid"
             borderColor="whiteAlpha.100"
           >
-            <Box
-              as="button"
+            <IconButton
+              aria-label="Voltar"
+              icon={<BackIcon />}
+              variant="unstyled"
               onClick={() => router.back()}
               color="gray.400"
               _hover={{ color: "white" }}
-              transition="color 0.15s"
-              p={1}
-            >
-              <BackIcon />
-            </Box>
+              display="flex"
+              alignItems="center"
+              justifyContent="center"
+              minW="auto"
+              h="auto"
+            />
             <Heading size="md" color="gray.100">
               Meus Rolês
             </Heading>
           </Flex>
 
-          {/* Content */}
           <Box px={4} pt={4}>
             {error && (
               <Text color="red.400" fontSize="sm" textAlign="center" py={8}>
@@ -375,7 +351,6 @@ export default function MyEventsPage() {
 
         <BottomNav />
 
-        {/* Delete confirmation modal */}
         <Modal isOpen={isDeleteOpen} onClose={onDeleteClose} isCentered motionPreset="slideInBottom" size="sm">
           <ModalOverlay bg="blackAlpha.800" backdropFilter="blur(4px)" />
           <ModalContent bg="surface.card" borderRadius="2xl" mx={4} border="1px solid" borderColor="whiteAlpha.100">
@@ -407,7 +382,6 @@ export default function MyEventsPage() {
           </ModalContent>
         </Modal>
 
-        {/* Edit modal */}
         <Modal isOpen={isOpen} onClose={onClose} isCentered motionPreset="slideInBottom" initialFocusRef={editRef}>
           <ModalOverlay bg="blackAlpha.800" backdropFilter="blur(4px)" />
           <ModalContent bg="surface.card" borderRadius="2xl" mx={4} border="1px solid" borderColor="whiteAlpha.100">

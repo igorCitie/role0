@@ -2,7 +2,7 @@
 
 import NextLink from "next/link";
 import { useRouter } from "next/navigation";
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import {
   Box,
   Button,
@@ -26,16 +26,63 @@ export default function LoginPage() {
   const [senha, setSenha] = useState("");
   const [loading, setLoading] = useState(false);
 
+  // Restore credentials from sessionStorage on mount (if page was reloaded/reset)
+  useEffect(() => {
+    if (typeof window !== "undefined") {
+      const savedEmail = sessionStorage.getItem("login_email");
+      const savedSenha = sessionStorage.getItem("login_senha");
+      if (savedEmail) setEmail(savedEmail);
+      if (savedSenha) setSenha(savedSenha);
+    }
+  }, []);
+
+  const handleEmailChange = (val: string) => {
+    setEmail(val);
+    if (typeof window !== "undefined") {
+      sessionStorage.setItem("login_email", val);
+    }
+  };
+
+  const handleSenhaChange = (val: string) => {
+    setSenha(val);
+    if (typeof window !== "undefined") {
+      sessionStorage.setItem("login_senha", val);
+    }
+  };
+
+  // Auto-redirect if already logged in (intelligent session check)
+  useEffect(() => {
+    const token = localStorage.getItem("token");
+    if (token && token !== "undefined" && token !== "null") {
+      router.replace("/home");
+    }
+  }, [router]);
+
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
-    setLoading(true);
+    if (loading) return;
+    
+    // Defer setLoading to the next tick to ensure preventDefault propagates cleanly
+    // and doesn't trigger a native browser form submission fallback
+    setTimeout(() => {
+      setLoading(true);
+    }, 0);
+
     try {
       const { token } = await login({ email, senha });
       localStorage.setItem("token", token);
+      
+      // Clear sessionStorage credentials on successful login
+      if (typeof window !== "undefined") {
+        sessionStorage.removeItem("login_email");
+        sessionStorage.removeItem("login_senha");
+      }
+
       try {
         const profile = await getMyProfile(token);
         localStorage.setItem("userId", profile.id);
       } catch { /* non-critical */ }
+      
       toast({ title: "Login realizado!", status: "success", duration: 2000, isClosable: true });
       router.push("/home");
     } catch (err) {
@@ -46,15 +93,15 @@ export default function LoginPage() {
         duration: 4000,
         isClosable: true,
       });
-    } finally {
+      // Ensure loading is set back to false on error
       setLoading(false);
     }
   }
 
   return (
     <Box
-      minH="100vh"
-      bg="#0B0B0F"
+      minH="100dvh"
+      bg="surface.bg"
       display="flex"
       flexDirection="column"
       alignItems="center"
@@ -63,7 +110,7 @@ export default function LoginPage() {
       position="relative"
       overflow="hidden"
     >
-      {/* Background ambient glows */}
+      {/* Background ambient glows — brand orange only */}
       <Box
         position="absolute"
         top="-120px"
@@ -72,7 +119,7 @@ export default function LoginPage() {
         w="480px"
         h="480px"
         borderRadius="full"
-        bg="radial-gradient(circle, rgba(188, 0, 209, 0.18) 0%, transparent 70%)"
+        bg="radial-gradient(circle, rgba(224, 56, 0, 0.12) 0%, transparent 70%)"
         pointerEvents="none"
       />
       <Box
@@ -82,7 +129,7 @@ export default function LoginPage() {
         w="320px"
         h="320px"
         borderRadius="full"
-        bg="radial-gradient(circle, rgba(255, 71, 10, 0.12) 0%, transparent 70%)"
+        bg="radial-gradient(circle, rgba(224, 56, 0, 0.06) 0%, transparent 70%)"
         pointerEvents="none"
       />
 
@@ -98,115 +145,115 @@ export default function LoginPage() {
             lineHeight={1}
           >
             Role
-            <Box
-              as="span"
-              bgGradient="linear(135deg, #3800e0, #e03800)"
-              bgClip="text"
-              style={{ WebkitBackgroundClip: "text", WebkitTextFillColor: "transparent" }}
-            >
-              0
-            </Box>
+            <Box as="span" color="brand.500">0</Box>
           </Heading>
           <Text fontSize="sm" color="gray.500" letterSpacing="0.04em">
-            Encontre o rolê certo para você.
+            Encontre o role certo para voce.
           </Text>
         </Stack>
 
         {/* Card */}
         <Box
-          borderRadius="24px"
+          borderRadius="card"
           p="1px"
-          bg="linear-gradient(135deg, rgba(208, 101, 74, 0.5) 0%, rgba(255,255,255,0.06) 50%, rgba(224,56,0,0.3) 100%)"
-          boxShadow="0 24px 64px rgba(56,0,224,0.15), 0 4px 24px rgba(0,0,0,0.4)"
+          bg="linear-gradient(135deg, rgba(224, 56, 0, 0.4) 0%, rgba(255,255,255,0.06) 50%, rgba(224, 56, 0, 0.2) 100%)"
+          boxShadow="0 24px 64px rgba(224, 56, 0, 0.08), 0 4px 24px rgba(0,0,0,0.4)"
         >
           <Box
-            bg="rgba(18,18,26,0.95)"
-            borderRadius="23px"
+            bg="surface.cardTranslucent"
+            borderRadius="19px"
             p={8}
             backdropFilter="blur(20px)"
           >
-            <Stack spacing={6} as="form" onSubmit={handleSubmit}>
-              <Stack spacing={1}>
-                <Heading size="lg" color="white" fontWeight="800" letterSpacing="-0.5px">
-                  Bem-vindo de volta
-                </Heading>
-                <Text fontSize="sm" color="gray.500">
-                  Entre na sua conta para continuar
-                </Text>
+            <form onSubmit={handleSubmit} action="javascript:void(0);" style={{ width: "100%" }}>
+              <Stack spacing={6}>
+                <Stack spacing={1}>
+                  <Heading size="lg" fontWeight="800" letterSpacing="-0.5px">
+                    Bem-vindo de volta
+                  </Heading>
+                  <Text fontSize="sm" color="gray.500">
+                    Entre na sua conta para continuar
+                  </Text>
+                </Stack>
+
+                <FormControl isRequired>
+                  <FormLabel fontSize="xs" color="gray.400" mb={1.5} letterSpacing="0.08em" textTransform="uppercase" fontWeight="600">
+                    E-mail
+                  </FormLabel>
+                  <Input
+                    type="email"
+                    inputMode="email"
+                    autoComplete="email"
+                    placeholder="voce@email.com"
+                    value={email}
+                    onChange={(e) => handleEmailChange(e.target.value)}
+                    size="lg"
+                    fontSize="16px"
+                    borderRadius="input"
+                    bg="rgba(255,255,255,0.04)"
+                    border="1px solid rgba(255,255,255,0.08)"
+                    color="white"
+                    _placeholder={{ color: "gray.500" }}
+                    _hover={{ border: "1px solid rgba(224,56,0,0.3)", bg: "rgba(255,255,255,0.06)" }}
+                    _focus={{ border: "1px solid", borderColor: "brand.500", bg: "rgba(224,56,0,0.04)", boxShadow: "0 0 0 3px rgba(224,56,0,0.12)", outline: "none" }}
+                    transition="all 0.2s"
+                  />
+                </FormControl>
+
+                <FormControl isRequired>
+                  <FormLabel fontSize="xs" color="gray.400" mb={1.5} letterSpacing="0.08em" textTransform="uppercase" fontWeight="600">
+                    Senha
+                  </FormLabel>
+                  <Input
+                    type="password"
+                    autoComplete="current-password"
+                    placeholder="••••••••"
+                    value={senha}
+                    onChange={(e) => handleSenhaChange(e.target.value)}
+                    size="lg"
+                    fontSize="16px"
+                    borderRadius="input"
+                    bg="rgba(255,255,255,0.04)"
+                    border="1px solid rgba(255,255,255,0.08)"
+                    color="white"
+                    _placeholder={{ color: "gray.500" }}
+                    _hover={{ border: "1px solid rgba(224,56,0,0.3)", bg: "rgba(255,255,255,0.06)" }}
+                    _focus={{ border: "1px solid", borderColor: "brand.500", bg: "rgba(224,56,0,0.04)", boxShadow: "0 0 0 3px rgba(224,56,0,0.12)", outline: "none" }}
+                    transition="all 0.2s"
+                  />
+                </FormControl>
+
+                <Button
+                  type="submit"
+                  size="lg"
+                  borderRadius="button"
+                  isLoading={loading}
+                  fontWeight="700"
+                  fontSize="md"
+                  bg="brand.500"
+                  color="white"
+                  border="none"
+                  _hover={{
+                    bg: "brand.400",
+                    transform: "translateY(-1px)",
+                    boxShadow: "0 8px 32px rgba(224,56,0,0.35)",
+                  }}
+                  _active={{ transform: "translateY(0)", boxShadow: "0 4px 16px rgba(224,56,0,0.25)" }}
+                  boxShadow="0 4px 20px rgba(224,56,0,0.2)"
+                  transition="all 0.2s"
+                  h="52px"
+                >
+                  Continuar
+                </Button>
               </Stack>
-
-              <FormControl isRequired>
-                <FormLabel fontSize="xs" color="gray.400" mb={1.5} letterSpacing="0.08em" textTransform="uppercase" fontWeight="600">
-                  E-mail
-                </FormLabel>
-                <Input
-                  type="email"
-                  placeholder="voce@email.com"
-                  value={email}
-                  onChange={(e) => setEmail(e.target.value)}
-                  size="lg"
-                  borderRadius="12px"
-                  bg="rgba(255,255,255,0.04)"
-                  border="1px solid rgba(255,255,255,0.08)"
-                  color="white"
-                  _placeholder={{ color: "gray.600" }}
-                  _hover={{ border: "1px solid rgba(56,0,224,0.4)", bg: "rgba(255,255,255,0.06)" }}
-                  _focus={{ border: "1px solid #3800e0", bg: "rgba(56,0,224,0.08)", boxShadow: "0 0 0 3px rgba(56,0,224,0.15)", outline: "none" }}
-                  transition="all 0.2s"
-                />
-              </FormControl>
-
-              <FormControl isRequired>
-                <FormLabel fontSize="xs" color="gray.400" mb={1.5} letterSpacing="0.08em" textTransform="uppercase" fontWeight="600">
-                  Senha
-                </FormLabel>
-                <Input
-                  type="password"
-                  placeholder="••••••••"
-                  value={senha}
-                  onChange={(e) => setSenha(e.target.value)}
-                  size="lg"
-                  borderRadius="12px"
-                  bg="rgba(255,255,255,0.04)"
-                  border="1px solid rgba(255,255,255,0.08)"
-                  color="white"
-                  _placeholder={{ color: "gray.600" }}
-                  _hover={{ border: "1px solid rgba(56,0,224,0.4)", bg: "rgba(255,255,255,0.06)" }}
-                  _focus={{ border: "1px solid #3800e0", bg: "rgba(56,0,224,0.08)", boxShadow: "0 0 0 3px rgba(56,0,224,0.15)", outline: "none" }}
-                  transition="all 0.2s"
-                />
-              </FormControl>
-
-              <Button
-                type="submit"
-                size="lg"
-                borderRadius="12px"
-                isLoading={loading}
-                fontWeight="700"
-                fontSize="md"
-                bg="linear-gradient(135deg, #e05600 0%, #5c1aff 100%)"
-                color="white"
-                border="none"
-                _hover={{
-                  bg: "linear-gradient(135deg, #fc432a 0%, #6e2aff 100%)",
-                  transform: "translateY(-1px)",
-                  boxShadow: "0 8px 32px rgba(56,0,224,0.45)",
-                }}
-                _active={{ transform: "translateY(0)", boxShadow: "0 4px 16px rgba(56,0,224,0.35)" }}
-                boxShadow="0 4px 20px rgba(252, 92, 60, 0.3)"
-                transition="all 0.2s"
-                h="52px"
-              >
-                Continuar →
-              </Button>
-            </Stack>
+            </form>
           </Box>
         </Box>
 
         {/* Footer */}
         <HStack justify="center" mt={6} spacing={1}>
           <Text fontSize="sm" color="gray.500">
-            Não tem uma conta?
+            Nao tem uma conta?
           </Text>
           <Button
             as={NextLink}
@@ -214,8 +261,8 @@ export default function LoginPage() {
             variant="link"
             fontSize="sm"
             fontWeight="700"
-            color="#3800e0"
-            _hover={{ color: "#5c1aff", textDecoration: "none" }}
+            color="brand.400"
+            _hover={{ color: "brand.300", textDecoration: "none" }}
           >
             Criar conta
           </Button>
@@ -230,7 +277,7 @@ export default function LoginPage() {
             color="gray.600"
             _hover={{ color: "gray.400" }}
           >
-            Voltar ao início
+            Voltar ao inicio
           </Button>
         </HStack>
       </Container>

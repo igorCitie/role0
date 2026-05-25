@@ -16,8 +16,8 @@ export async function getMyProfile(token: string): Promise<UserProfile> {
 }
 
 export interface UpdateProfileRequest {
-  nomeDisplay: string;
-  vibeTags?: string[];
+  nome: string;
+  vibes?: string[];
 }
 
 export interface PublicUserProfile {
